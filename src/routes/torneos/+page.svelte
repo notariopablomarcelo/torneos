@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { suscribirTorneos } from '$lib/services/torneos';
 	import type { Torneo } from '$lib/types/torneo';
+	import RangoFechas from '$lib/components/RangoFechas.svelte';
 
 	let torneos = $state<Torneo[]>([]);
 	let cargando = $state(true);
@@ -13,19 +14,6 @@
 		});
 		return unsub;
 	});
-
-	function rangoFechas(t: Torneo): string {
-		const inicio = new Date(t.fechaInicio + 'T00:00:00');
-		const fin = new Date(t.fechaFin + 'T00:00:00');
-		const fmt = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' });
-		const fmtFull = new Intl.DateTimeFormat('es-AR', {
-			day: '2-digit',
-			month: 'short',
-			year: 'numeric'
-		});
-		if (t.fechaInicio === t.fechaFin) return fmtFull.format(inicio);
-		return `${fmt.format(inicio)} – ${fmtFull.format(fin)}`;
-	}
 </script>
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
@@ -73,10 +61,7 @@
 						class="block rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-brand-300 hover:shadow-md"
 					>
 						<h2 class="mb-2 font-semibold text-gray-900">{t.nombre}</h2>
-						<p class="flex items-center gap-1.5 text-sm text-gray-500">
-							<i class="bi bi-calendar-event"></i>
-							{rangoFechas(t)}
-						</p>
+						<RangoFechas inicio={t.fechaInicio} fin={t.fechaFin} />
 					</a>
 				</li>
 			{/each}

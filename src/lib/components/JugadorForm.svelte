@@ -23,6 +23,7 @@
 		{ id: 'py', label: '🇵🇾 PY', codigo: '595' },
 		{ id: 'otros', label: '🌐 Otros', codigo: '' }
 	];
+	const opcionesPais = PAISES.map((p) => ({ value: p.id, label: p.label }));
 
 	// Parsea el telefono almacenado (formato libre con +CODIGO al inicio) en
 	// pais + codigo + numero. Si no matchea ningun pais conocido cae a "otros".
@@ -123,11 +124,13 @@
 
 	<div>
 		<div class="flex gap-2">
-			<SelectField id="jug-pais" label="País" bind:value={paisId} class="shrink-0 w-28">
-				{#each PAISES as p (p.id)}
-					<option value={p.id}>{p.label}</option>
-				{/each}
-			</SelectField>
+			<SelectField
+				id="jug-pais"
+				label="País"
+				bind:value={paisId}
+				options={opcionesPais}
+				class="w-32 shrink-0"
+			/>
 			{#if paisId === 'otros'}
 				<TextField
 					id="jug-cod"

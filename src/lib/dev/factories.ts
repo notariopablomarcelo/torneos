@@ -4,7 +4,8 @@ import {
 	type CategoriaInput,
 	type TorneoInput
 } from '$lib/types/torneo';
-import type { JugadorInput } from '$lib/types/jugador';
+import type { Jugador, JugadorInput } from '$lib/types/jugador';
+import type { InscripcionInput } from '$lib/types/inscripcion';
 
 // Factories de datos ficticios para el boton "Test" de los formularios.
 // Cada llamada devuelve datos nuevos (sin determinismo). A medida que sumemos
@@ -74,7 +75,11 @@ export function generarCategoriaInput(): CategoriaInput {
 	return {
 		nivel: pick(NIVELES_CATEGORIA),
 		genero: pick(GENEROS_CATEGORIA),
-		cupos: pick([null, 16, 24, 32, 48] as const)
+		cupos: pick([null, 16, 24, 32, 48] as const),
+		// Default padel (2 = pareja). Mantenemos fijo en el factory porque la
+		// app arranca enfocada en padel; cuando soportemos otros deportes el
+		// factory puede variar.
+		cantidadJugadores: 2
 	};
 }
 
@@ -123,6 +128,24 @@ const APELLIDOS = [
 	'Ortiz',
 	'Romero'
 ];
+
+// Genera una inscripcion ficticia tomando N jugadores al azar de los que
+// estan disponibles (los que no estan ya inscriptos). Devuelve null si no
+// hay suficientes. El ranking se autoasigna al siguiente entero libre.
+export function generarInscripcionInput(
+	jugadoresDisponibles: Jugador[],
+	cantidadJugadores: number,
+	rankingsExistentes: number[]
+): InscripcionInput | null {
+	if (jugadoresDisponibles.length < cantidadJugadores) return null;
+	const mezclados = [...jugadoresDisponibles].sort(() => Math.random() - 0.5);
+	const jugadores = mezclados.slice(0, cantidadJugadores).map((j) => j.id);
+	const maxRanking = rankingsExistentes.length > 0 ? Math.max(...rankingsExistentes) : 0;
+	return {
+		jugadores,
+		ranking: maxRanking + 1
+	};
+}
 
 export function generarJugadorInput(): JugadorInput {
 	const nombre = pick(NOMBRES);

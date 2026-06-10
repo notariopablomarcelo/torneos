@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ArmadoConfig } from './armado';
 
 // Esquemas de validacion + tipos del dominio. Los esquemas "input" son los
 // datos que entran por formulario; los tipos completos suman id y creadoEn
@@ -60,7 +61,10 @@ export const GENEROS_CATEGORIA: GeneroCategoria[] = ['Caballeros', 'Damas', 'Mix
 export const categoriaInputSchema = z.object({
 	nivel: nivelCategoriaSchema,
 	genero: generoCategoriaSchema,
-	cupos: z.number().int().positive().nullable()
+	cupos: z.number().int().positive().nullable(),
+	// cantidadJugadores define el tamano de cada inscripcion (1 = singles,
+	// 2 = pareja/dobles, 3+ = equipo). Default 2 para padel. Acota 1..6.
+	cantidadJugadores: z.number().int().min(1).max(6)
 });
 
 export type CategoriaInput = z.infer<typeof categoriaInputSchema>;
@@ -69,6 +73,10 @@ export type Categoria = CategoriaInput & {
 	id: string;
 	torneoId: string;
 	creadoEn: string;
+	// Si la categoria fue armada en zonas, guardamos la config usada. null o
+	// undefined => no armada. Solo lo toca el servicio de armado, no el form
+	// de CategoriaForm.
+	armadoConfig?: ArmadoConfig | null;
 };
 
 // Nombre derivado a partir de nivel + genero. Se usa en todas las vistas
@@ -78,4 +86,49 @@ export function nombreCategoria(c: {
 	genero: GeneroCategoria;
 }): string {
 	return `${c.nivel} ${c.genero}`;
+}
+
+// Sustantivo deporte-agnostico para una inscripcion segun la cantidad de
+// jugadores por equipo. Se usa en titulos ("Nueva pareja" vs "Nuevo equipo")
+// y mensajes ("?Eliminar la pareja...?").
+export function sustantivoInscripcion(cantidadJugadores: number): string {
+	if (cantidadJugadores <= 1) return 'jugador';
+	if (cantidadJugadores === 2) return 'pareja';
+	return 'equipo';
+}
+
+// Para compatibilidad con categorias creadas antes del campo. Si no esta
+// definido, asumimos 2 (padel) — es el deporte para el que arrancamos.
+export function obtenerCantidadJugadores(c: { cantidadJugadores?: number }): number {
+	return c.cantidadJugadores ?? 2;
+}
+
+// Formato compacto de fecha: "18 Sep 26". Mapeo manual de meses porque
+// Intl.DateTimeFormat con 'short' en es-AR devuelve "sept." con punto y
+// minuscula, que no es el formato deseado.
+const MESES_ABREV = [
+	'Ene',
+	'Feb',
+	'Mar',
+	'Abr',
+	'May',
+	'Jun',
+	'Jul',
+	'Ago',
+	'Sep',
+	'Oct',
+	'Nov',
+	'Dic'
+];
+
+export function formatearFecha(iso: string): string {
+	const d = new Date(iso + 'T00:00:00');
+	return `${d.getDate()} ${MESES_ABREV[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`;
+}
+
+// Rango de fechas para un torneo: "18 Sep 26 al 20 Sep 26", o solo una si
+// inicio == fin.
+export function rangoFechasTorneo(inicioIso: string, finIso: string): string {
+	if (inicioIso === finIso) return formatearFecha(inicioIso);
+	return `${formatearFecha(inicioIso)} al ${formatearFecha(finIso)}`;
 }

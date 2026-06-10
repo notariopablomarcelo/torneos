@@ -30,6 +30,21 @@
 	// El input numerico maneja null como "sin tope": guardamos string "" como
 	// proxy y al validar lo convertimos a null | numero.
 	let cuposStr = $state(seed.cupos === null ? '' : String(seed.cupos));
+	// cantidadJugadores como string para el SelectField nativo (que devuelve
+	// string al bindear). Lo convertimos a number al validar.
+	let cantJugadoresStr = $state(String(seed.cantidadJugadores));
+
+	// Opciones de tamano de equipo. Por ahora solo deportes individuales y de
+	// pareja (padel, tenis singles/dobles). Cuando soportemos equipos mas
+	// grandes (volley, futbol) sumamos mas opciones aca; el schema Zod ya
+	// admite hasta 6.
+	const TAMANOS = [
+		{ value: '1', label: '1 (individual)' },
+		{ value: '2', label: '2 (pareja)' }
+	];
+
+	const opcionesNivel = NIVELES_CATEGORIA.map((n) => ({ value: n, label: n }));
+	const opcionesGenero = GENEROS_CATEGORIA.map((g) => ({ value: g, label: g }));
 
 	let errores = $state<Record<string, string[] | undefined>>({});
 	let errorGlobal = $state<string | null>(null);
@@ -45,7 +60,8 @@
 		const parsed = categoriaInputSchema.safeParse({
 			nivel,
 			genero,
-			cupos: cuposNorm
+			cupos: cuposNorm,
+			cantidadJugadores: Number(cantJugadoresStr)
 		});
 
 		if (!parsed.success) {
@@ -73,6 +89,7 @@
 		nivel = datos.nivel;
 		genero = datos.genero;
 		cuposStr = datos.cupos === null ? '' : String(datos.cupos);
+		cantJugadoresStr = String(datos.cantidadJugadores);
 		errores = {};
 		errorGlobal = null;
 	}
@@ -80,27 +97,40 @@
 
 <form onsubmit={handleSubmit} class="space-y-4">
 	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-		<SelectField id="cat-nivel" label="Categoría" bind:value={nivel} error={err('nivel')}>
-			{#each NIVELES_CATEGORIA as n (n)}
-				<option value={n}>{n}</option>
-			{/each}
-		</SelectField>
-		<SelectField id="cat-genero" label="Género" bind:value={genero} error={err('genero')}>
-			{#each GENEROS_CATEGORIA as g (g)}
-				<option value={g}>{g}</option>
-			{/each}
-		</SelectField>
+		<SelectField
+			id="cat-nivel"
+			label="Categoría"
+			bind:value={nivel}
+			options={opcionesNivel}
+			error={err('nivel')}
+		/>
+		<SelectField
+			id="cat-genero"
+			label="Género"
+			bind:value={genero}
+			options={opcionesGenero}
+			error={err('genero')}
+		/>
 	</div>
 
-	<TextField
-		id="cat-cupos"
-		label="Cupos (opcional)"
-		type="text"
-		inputmode="numeric"
-		pattern="[0-9]*"
-		bind:value={cuposStr}
-		error={err('cupos')}
-	/>
+	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+		<TextField
+			id="cat-cupos"
+			label="Cupos (opcional)"
+			type="text"
+			inputmode="numeric"
+			pattern="[0-9]*"
+			bind:value={cuposStr}
+			error={err('cupos')}
+		/>
+		<SelectField
+			id="cat-tam"
+			label="Jugadores por equipo"
+			bind:value={cantJugadoresStr}
+			options={TAMANOS}
+			error={err('cantidadJugadores')}
+		/>
+	</div>
 
 	{#if errorGlobal}
 		<div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">

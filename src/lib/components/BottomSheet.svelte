@@ -1,6 +1,12 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	// Modal centrado para alta/edicion. Aunque el archivo se llama BottomSheet
+	// por historia, hoy es un dialog centrado en ambos breakpoints (mobile y
+	// desktop) — patron de "app de gestion". Backdrop opaco + animacion suave
+	// de entrada. Usa <dialog> nativo con showModal() para focus trap, Esc y
+	// backdrop gratis.
+
 	type Props = {
 		open: boolean;
 		onClose: () => void;
@@ -12,18 +18,12 @@
 
 	let dialog = $state<HTMLDialogElement>();
 
-	// Sincronizamos el atributo open del dialog con la prop. showModal() lo
-	// abre como modal real: trae focus trap, Esc para cerrar y backdrop nativo.
-	// close() lo cierra. Hacemos el chequeo de dialog.open para no duplicar.
 	$effect(() => {
 		if (!dialog) return;
 		if (open && !dialog.open) dialog.showModal();
 		if (!open && dialog.open) dialog.close();
 	});
 
-	// Click sobre el backdrop: el target del click es el propio <dialog> (no
-	// su contenido), porque el backdrop es un pseudo-elemento del propio
-	// dialog. Si la gente toca afuera del card, cerramos.
 	function handleClick(e: MouseEvent) {
 		if (e.target === dialog) onClose();
 	}
@@ -33,7 +33,7 @@
 	bind:this={dialog}
 	onclose={onClose}
 	onclick={handleClick}
-	class="m-0 mt-auto max-h-[90vh] w-full max-w-full overflow-y-auto rounded-t-2xl bg-white p-0 shadow-2xl backdrop:bg-black/50 sm:m-auto sm:max-h-[85vh] sm:max-w-md sm:rounded-2xl"
+	class="m-auto max-h-[90vh] w-[calc(100vw-2rem)] max-w-md overflow-y-auto rounded-2xl bg-white p-0 shadow-2xl backdrop:bg-black/60"
 >
 	<div
 		class="sticky top-0 flex items-center justify-between border-b border-gray-200 bg-white px-5 py-4"
@@ -50,11 +50,34 @@
 	</div>
 	<div class="px-5 py-4">
 		{#if open}
-			<!-- children solo montado si open=true. Asi los forms adentro se
-			     crean fresh cada vez que abre el sheet (importante para evitar
-			     ids duplicados si hay multiples sheets coexistiendo, y para que
-			     el seed inicial se tome del initial actual). -->
 			{@render children?.()}
 		{/if}
 	</div>
 </dialog>
+
+<style>
+	dialog[open] {
+		animation: fade-in 180ms cubic-bezier(0.2, 0, 0, 1);
+	}
+	dialog[open]::backdrop {
+		animation: backdrop-fade 180ms ease-out;
+	}
+	@keyframes fade-in {
+		from {
+			opacity: 0;
+			transform: scale(0.96);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+	@keyframes backdrop-fade {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+</style>

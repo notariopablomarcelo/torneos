@@ -3,13 +3,9 @@
 	import { goto } from '$app/navigation';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import CategoriaForm from '$lib/components/CategoriaForm.svelte';
+	import RangoFechas from '$lib/components/RangoFechas.svelte';
 	import { suscribirTorneo, eliminarTorneo } from '$lib/services/torneos';
-	import {
-		suscribirCategorias,
-		crearCategoria,
-		actualizarCategoria,
-		eliminarCategoria
-	} from '$lib/services/categorias';
+	import { suscribirCategorias, crearCategoria } from '$lib/services/categorias';
 	import { AMBIENTE } from '$lib/firebase';
 	import { generarCategoriaInput } from '$lib/dev/factories';
 	import {
@@ -30,14 +26,7 @@
 	let categorias = $state<Categoria[]>([]);
 	let cargandoCats = $state(true);
 
-	// Estado de los sheets. Dos booleans/ids en lugar de un enum porque cada
-	// sheet es independiente y puede abrirse/cerrarse con su propia accion.
 	let sheetNueva = $state(false);
-	let editandoId = $state<string | null>(null);
-
-	const catEditando = $derived(
-		editandoId ? (categorias.find((c) => c.id === editandoId) ?? null) : null
-	);
 
 	// Listado ordenado por nivel (1ra -> 9na) y, dentro del mismo nivel, por
 	// genero (Caballeros -> Damas -> Mixto). El orden viene de la posicion en
@@ -60,10 +49,7 @@
 		cargandoCats = true;
 		torneo = null;
 		categorias = [];
-		// Limpiamos los sheets para no quedar editando una categoria del
-		// torneo anterior.
 		sheetNueva = false;
-		editandoId = null;
 
 		const unsubT = suscribirTorneo(tid, (t) => {
 			torneo = t;
@@ -79,22 +65,6 @@
 		};
 	});
 
-	// Si la categoria que se esta editando desaparece (otro cliente la borro,
-	// o el snapshot llego antes), cerramos el sheet para que la UI no quede
-	// con un sheet abierto sobre datos invalidos.
-	$effect(() => {
-		if (editandoId && !catEditando) {
-			editandoId = null;
-		}
-	});
-
-	function rangoFechas(t: Torneo): string {
-		const inicio = new Date(t.fechaInicio + 'T00:00:00');
-		const fin = new Date(t.fechaFin + 'T00:00:00');
-		const fmt = new Intl.DateTimeFormat('es-AR', { dateStyle: 'long' });
-		if (t.fechaInicio === t.fechaFin) return fmt.format(inicio);
-		return `${fmt.format(inicio)} – ${fmt.format(fin)}`;
-	}
 
 	async function handleEliminarTorneo() {
 		if (!torneo) return;
@@ -111,22 +81,11 @@
 		sheetNueva = false;
 	}
 
-	async function handleActualizarCat(data: CategoriaInput) {
-		if (!editandoId) return;
-		await actualizarCategoria(id, editandoId, data);
-		editandoId = null;
-	}
-
-	async function handleEliminarCat(cat: Categoria) {
-		const ok = confirm(`¿Eliminar la categoría "${nombreCategoria(cat)}"?`);
-		if (!ok) return;
-		await eliminarCategoria(id, cat.id);
-	}
-
 	const initialNuevaCat: CategoriaInput = {
 		nivel: '4ta',
 		genero: 'Caballeros',
-		cupos: null
+		cupos: null,
+		cantidadJugadores: 2
 	};
 
 	// Boton "Test" disponible solo fuera de produccion.
@@ -151,32 +110,33 @@
 			No se encontró el torneo.
 		</div>
 	{:else}
-		<header class="mt-3 mb-6 flex flex-wrap items-start justify-between gap-3">
-			<div>
-				<h1 class="text-2xl font-bold text-gray-900">{torneo.nombre}</h1>
-				<p class="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
-					<i class="bi bi-calendar-event"></i>
-					{rangoFechas(torneo)}
-				</p>
+		<section class="mt-3 mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
+			<div class="p-5">
+				<h1 class="text-xl font-bold text-gray-900">{torneo.nombre}</h1>
+				<div class="mt-2">
+					<RangoFechas inicio={torneo.fechaInicio} fin={torneo.fechaFin} />
+				</div>
 			</div>
-			<div class="flex items-center gap-2">
+			<footer class="flex items-center justify-end gap-1 border-t border-gray-100 px-3 py-2">
 				<a
 					href={`/torneos/${id}/editar`}
-					class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					title="Editar torneo"
+					aria-label="Editar torneo"
+					class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
 				>
 					<i class="bi bi-pencil"></i>
-					Editar
 				</a>
 				<button
 					type="button"
 					onclick={handleEliminarTorneo}
-					class="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+					title="Eliminar torneo"
+					aria-label="Eliminar torneo"
+					class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-700"
 				>
 					<i class="bi bi-trash"></i>
-					Eliminar
 				</button>
-			</div>
-		</header>
+			</footer>
+		</section>
 
 		<section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
 			<div class="mb-4 flex items-center justify-between">
@@ -200,33 +160,23 @@
 					Todavía no hay categorías. Creá la primera para arrancar.
 				</p>
 			{:else}
-				<ul class="divide-y divide-gray-100">
+				<!-- Mismo divisor que la lista de inscripciones del detalle de
+				     categoria, para consistencia visual. -->
+				<ul class="divide-y-2 divide-gray-200">
 					{#each categoriasOrdenadas as c (c.id)}
-						<li class="flex items-center justify-between gap-3 py-3">
-							<div class="min-w-0">
-								<p class="font-medium text-gray-900">{nombreCategoria(c)}</p>
-								<p class="text-xs text-gray-500">
-									{c.cupos === null ? 'Sin tope de cupos' : `${c.cupos} cupos`}
-								</p>
-							</div>
-							<div class="flex shrink-0 items-center gap-1">
-								<button
-									type="button"
-									onclick={() => (editandoId = c.id)}
-									class="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-									aria-label="Editar {nombreCategoria(c)}"
-								>
-									<i class="bi bi-pencil"></i>
-								</button>
-								<button
-									type="button"
-									onclick={() => handleEliminarCat(c)}
-									class="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700"
-									aria-label="Eliminar {nombreCategoria(c)}"
-								>
-									<i class="bi bi-trash"></i>
-								</button>
-							</div>
+						<li>
+							<a
+								href={`/torneos/${id}/categorias/${c.id}`}
+								class="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 hover:bg-gray-50"
+							>
+								<div class="min-w-0 flex-1">
+									<p class="font-medium text-gray-900">{nombreCategoria(c)}</p>
+									<p class="text-xs text-gray-500">
+										{c.cupos === null ? 'Sin tope de cupos' : `${c.cupos} cupos`}
+									</p>
+								</div>
+								<i class="bi bi-chevron-right text-gray-400"></i>
+							</a>
 						</li>
 					{/each}
 				</ul>
@@ -235,7 +185,8 @@
 	{/if}
 </div>
 
-<!-- Sheet de nueva categoria: form en blanco. -->
+<!-- Sheet de nueva categoria: form en blanco. Editar/eliminar viven en el
+     detalle de cada categoria. -->
 <BottomSheet
 	open={sheetNueva}
 	onClose={() => (sheetNueva = false)}
@@ -248,27 +199,4 @@
 		onCancel={() => (sheetNueva = false)}
 		onTest={onTestCat}
 	/>
-</BottomSheet>
-
-<!-- Sheet de editar categoria: form precargado con la categoria activa. El
-     {#key editandoId} fuerza remount al cambiar de A a B sin cerrar antes. -->
-<BottomSheet
-	open={editandoId !== null && catEditando !== null}
-	onClose={() => (editandoId = null)}
-	title="Editar categoría"
->
-	{#if catEditando}
-		{#key editandoId}
-			<CategoriaForm
-				initial={{
-					nivel: catEditando.nivel,
-					genero: catEditando.genero,
-					cupos: catEditando.cupos
-				}}
-				submitLabel="Guardar cambios"
-				onSubmit={handleActualizarCat}
-				onCancel={() => (editandoId = null)}
-			/>
-		{/key}
-	{/if}
 </BottomSheet>
