@@ -48,7 +48,7 @@
 	>
 		<span>Nueva versión disponible</span>
 		<button
-			class="rounded-lg bg-orange-500 px-4 py-2 font-medium hover:bg-orange-600"
+			class="rounded-lg bg-brand-500 px-4 py-2 font-medium hover:bg-brand-600"
 			onclick={aplicarActualizacion}
 		>
 			Actualizar

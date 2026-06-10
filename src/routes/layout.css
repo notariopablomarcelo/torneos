@@ -1,2 +1,21 @@
 @import 'tailwindcss';
 @import 'bootstrap-icons/font/bootstrap-icons.css';
+
+/*
+ * Paleta de marca: azul Francia. Toda la UI (botones primarios, focus rings,
+ * acentos) usa las clases bg-brand-*, text-brand-*, ring-brand-* etc. Cambiar
+ * el tono de la marca = ajustar los valores de aca, no buscar/reemplazar en
+ * componentes.
+ */
+@theme {
+	--color-brand-50: #eff5fb;
+	--color-brand-100: #d8e7f4;
+	--color-brand-200: #b3cfe9;
+	--color-brand-300: #7eaedb;
+	--color-brand-400: #4a8ecc;
+	--color-brand-500: #0072bb;
+	--color-brand-600: #005a96;
+	--color-brand-700: #004678;
+	--color-brand-800: #003359;
+	--color-brand-900: #00223b;
+}
