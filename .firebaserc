@@ -1,0 +1,19 @@
+{
+	"projects": {
+		"default": "PENDIENTE-test",
+		"test": "PENDIENTE-test",
+		"prod": "PENDIENTE-prod"
+	},
+	"targets": {
+		"PENDIENTE-test": {
+			"hosting": {
+				"test": ["PENDIENTE-test"]
+			}
+		},
+		"PENDIENTE-prod": {
+			"hosting": {
+				"prod": ["PENDIENTE-prod"]
+			}
+		}
+	}
+}
