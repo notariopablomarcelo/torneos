@@ -1,12 +1,18 @@
 rules_version = '2';
 
+// !!! ADVERTENCIA — REGLAS DE DESARROLLO !!!
+// Este archivo deja Firestore COMPLETAMENTE ABIERTO (lectura y escritura
+// para cualquiera, sin autenticacion). Es deliberado mientras iteramos
+// la app sin auth en el proyecto -test. Antes de pasar a produccion hay
+// que reemplazar esto por reglas reales basadas en roles/permisos.
+//
+// El proyecto torneos-test-38927 no contiene datos sensibles, y el dominio
+// del hosting no es publico. Aun asi, NO copiar este archivo a -prod.
+
 service cloud.firestore {
 	match /databases/{database}/documents {
-		// Reglas conservadoras por defecto: solo lectura/escritura autenticada.
-		// Cuando definamos el modelo de permisos (admin / fiscal / público),
-		// refinamos por colección.
 		match /{document=**} {
-			allow read, write: if request.auth != null;
+			allow read, write: if true;
 		}
 	}
 }
