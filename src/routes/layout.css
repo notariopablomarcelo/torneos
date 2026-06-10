@@ -2,6 +2,21 @@
 @import 'bootstrap-icons/font/bootstrap-icons.css';
 
 /*
+ * Polyfill de banderas (Windows/Chrome desktop no tienen los glyphs de
+ * country emojis). La libreria country-flag-emoji-polyfill inyecta el
+ * @font-face de "Twemoji Country Flags" — una font que SOLO tiene glifos
+ * para flags. Al ponerla primero en la cascada, el browser usa Twemoji
+ * para las banderas y cae a la siguiente font para el resto del texto.
+ */
+:where(body, button, input, select, option, textarea) {
+	font-family:
+		'Twemoji Country Flags',
+		ui-sans-serif,
+		system-ui,
+		sans-serif;
+}
+
+/*
  * Paleta de marca: azul Francia. Toda la UI (botones primarios, focus rings,
  * acentos) usa las clases bg-brand-*, text-brand-*, ring-brand-* etc. Cambiar
  * el tono de la marca = ajustar los valores de aca, no buscar/reemplazar en

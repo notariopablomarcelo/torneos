@@ -1,15 +1,13 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { torneoInputSchema, type TorneoInput } from '$lib/types/torneo';
+	import TextField from './TextField.svelte';
 
 	type Props = {
 		initial: TorneoInput;
 		submitLabel?: string;
 		onSubmit: (data: TorneoInput) => Promise<void>;
 		onCancel?: () => void;
-		// onTest opcional: si esta presente, el form muestra un boton "Test"
-		// que rellena los campos con datos ficticios generados por la funcion.
-		// El padre decide si mostrarlo (tipicamente solo fuera de produccion).
 		onTest?: () => TorneoInput;
 	};
 
@@ -68,52 +66,26 @@
 	}
 </script>
 
-<form onsubmit={handleSubmit} class="space-y-5">
-	<div>
-		<label for="nombre" class="mb-1 block text-sm font-medium text-gray-700">
-			Nombre del torneo
-		</label>
-		<input
-			id="nombre"
-			type="text"
-			bind:value={nombre}
-			class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
-			placeholder="Open de Verano Asunción 2026"
-		/>
-		{#if err('nombre')}
-			<p class="mt-1 text-xs text-red-600">{err('nombre')}</p>
-		{/if}
-	</div>
+<form onsubmit={handleSubmit} class="space-y-4">
+	<TextField id="tor-nombre" label="Nombre del torneo" bind:value={nombre} error={err('nombre')} />
 
 	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-		<div>
-			<label for="fechaInicio" class="mb-1 block text-sm font-medium text-gray-700">
-				Fecha de inicio
-			</label>
-			<input
-				id="fechaInicio"
-				type="date"
-				bind:value={fechaInicio}
-				class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
-			/>
-			{#if err('fechaInicio')}
-				<p class="mt-1 text-xs text-red-600">{err('fechaInicio')}</p>
-			{/if}
-		</div>
-		<div>
-			<label for="fechaFin" class="mb-1 block text-sm font-medium text-gray-700">
-				Fecha de fin
-			</label>
-			<input
-				id="fechaFin"
-				type="date"
-				bind:value={fechaFin}
-				class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
-			/>
-			{#if err('fechaFin')}
-				<p class="mt-1 text-xs text-red-600">{err('fechaFin')}</p>
-			{/if}
-		</div>
+		<TextField
+			id="tor-inicio"
+			label="Fecha de inicio"
+			type="date"
+			floating={false}
+			bind:value={fechaInicio}
+			error={err('fechaInicio')}
+		/>
+		<TextField
+			id="tor-fin"
+			label="Fecha de fin"
+			type="date"
+			floating={false}
+			bind:value={fechaFin}
+			error={err('fechaFin')}
+		/>
 	</div>
 
 	{#if errorGlobal}

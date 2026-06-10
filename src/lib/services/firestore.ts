@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '$lib/firebase';
 import type { Categoria, Torneo } from '$lib/types/torneo';
+import type { Jugador } from '$lib/types/jugador';
 
 // Referencias tipadas a las colecciones y documentos. Las paginas y servicios
 // arman queries sobre estas helpers, en lugar de repetir el path como string.
@@ -14,6 +15,7 @@ import type { Categoria, Torneo } from '$lib/types/torneo';
 
 type TorneoDoc = Omit<Torneo, 'id'>;
 type CategoriaDoc = Omit<Categoria, 'id'>;
+type JugadorDoc = Omit<Jugador, 'id'>;
 
 export const torneosCol = (): CollectionReference<TorneoDoc> =>
 	collection(db(), 'torneos') as CollectionReference<TorneoDoc>;
@@ -29,3 +31,9 @@ export const categoriaDoc = (
 	id: string
 ): DocumentReference<CategoriaDoc> =>
 	doc(db(), 'torneos', torneoId, 'categorias', id) as DocumentReference<CategoriaDoc>;
+
+export const jugadoresCol = (): CollectionReference<JugadorDoc> =>
+	collection(db(), 'jugadores') as CollectionReference<JugadorDoc>;
+
+export const jugadorDoc = (id: string): DocumentReference<JugadorDoc> =>
+	doc(db(), 'jugadores', id) as DocumentReference<JugadorDoc>;

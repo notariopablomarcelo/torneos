@@ -41,6 +41,7 @@
 		"vite-plugin-pwa": "^1.3.0"
 	},
 	"dependencies": {
+		"country-flag-emoji-polyfill": "^0.1.8",
 		"firebase": "^12.14.0",
 		"zod": "^4.4.3"
 	}

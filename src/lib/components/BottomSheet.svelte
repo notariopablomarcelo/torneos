@@ -49,6 +49,12 @@
 		</button>
 	</div>
 	<div class="px-5 py-4">
-		{@render children?.()}
+		{#if open}
+			<!-- children solo montado si open=true. Asi los forms adentro se
+			     crean fresh cada vez que abre el sheet (importante para evitar
+			     ids duplicados si hay multiples sheets coexistiendo, y para que
+			     el seed inicial se tome del initial actual). -->
+			{@render children?.()}
+		{/if}
 	</div>
 </dialog>

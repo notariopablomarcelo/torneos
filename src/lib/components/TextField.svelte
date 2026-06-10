@@ -1,0 +1,76 @@
+<script lang="ts">
+	import type { HTMLInputAttributes } from 'svelte/elements';
+
+	// Input outlined con label flotante estilo Material. El label esta dentro
+	// del input cuando esta vacio + no enfocado; cuando hay foco o valor, sube
+	// arriba sobre la linea del borde con bg-white para "cortarlo".
+	//
+	// Truco clave: el input usa placeholder=" " (espacio, no string vacio) para
+	// que el selector :placeholder-shown solo aplique cuando el campo realmente
+	// esta vacio. Con placeholder="" el selector matchea siempre y rompe el
+	// efecto.
+
+	type Props = {
+		id: string;
+		label: string;
+		value: string;
+		type?: 'text' | 'tel' | 'email' | 'number' | 'date' | 'search';
+		inputmode?: 'text' | 'numeric' | 'tel' | 'email' | 'search' | 'decimal';
+		pattern?: string;
+		maxlength?: number;
+		autocomplete?: HTMLInputAttributes['autocomplete'];
+		error?: string | null;
+		disabled?: boolean;
+		// Si floating=false, el label queda siempre en la posicion compacta
+		// arriba (mismo estilo que SelectField). Util para type="date" donde el
+		// browser ya muestra "dd/mm/aaaa" y rompe el :placeholder-shown.
+		floating?: boolean;
+		class?: string;
+	};
+
+	let {
+		id,
+		label,
+		value = $bindable(),
+		type = 'text',
+		inputmode,
+		pattern,
+		maxlength,
+		autocomplete = 'off',
+		error,
+		disabled = false,
+		floating = true,
+		class: extraClass = ''
+	}: Props = $props();
+</script>
+
+<div class="relative {extraClass}">
+	<input
+		{id}
+		{type}
+		{inputmode}
+		{pattern}
+		{maxlength}
+		{autocomplete}
+		{disabled}
+		bind:value
+		placeholder=" "
+		class="peer block w-full appearance-none rounded-lg border bg-white px-3 pt-5 pb-1.5 text-sm focus:outline-none focus:ring-2 disabled:bg-gray-50 disabled:text-gray-400 {error
+			? 'border-red-400 focus:border-red-500 focus:ring-red-200'
+			: 'border-gray-300 focus:border-brand-500 focus:ring-brand-200'}"
+	/>
+	<label
+		for={id}
+		class="pointer-events-none absolute start-3 top-1 z-10 origin-[0] text-xs transition-all
+			{floating
+			? 'peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-1 peer-focus:translate-y-0 peer-focus:text-xs'
+			: ''}
+			{error ? 'text-red-600 peer-focus:text-red-600' : 'text-gray-500 peer-focus:text-brand-600'}"
+	>
+		{label}
+	</label>
+</div>
+
+{#if error}
+	<p class="mt-1 text-xs text-red-600">{error}</p>
+{/if}

@@ -8,6 +8,8 @@
 		type GeneroCategoria,
 		type NivelCategoria
 	} from '$lib/types/torneo';
+	import TextField from './TextField.svelte';
+	import SelectField from './SelectField.svelte';
 
 	type Props = {
 		initial: CategoriaInput;
@@ -22,9 +24,6 @@
 
 	let { initial, submitLabel = 'Guardar', onSubmit, onCancel, onTest }: Props = $props();
 
-	// El form solo toma initial como valores iniciales; cambios posteriores
-	// del padre no se reflejan (es por diseño). untrack rompe el rastreo
-	// para que Svelte no se queje de capturar un reactivo en $state.
 	const seed = untrack(() => initial);
 	let nivel = $state<NivelCategoria>(seed.nivel);
 	let genero = $state<GeneroCategoria>(seed.genero);
@@ -81,59 +80,27 @@
 
 <form onsubmit={handleSubmit} class="space-y-4">
 	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-		<div>
-			<label for="cat-nivel" class="mb-1 block text-sm font-medium text-gray-700">
-				Categoría
-			</label>
-			<select
-				id="cat-nivel"
-				bind:value={nivel}
-				class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
-			>
-				{#each NIVELES_CATEGORIA as n (n)}
-					<option value={n}>{n}</option>
-				{/each}
-			</select>
-			{#if err('nivel')}
-				<p class="mt-1 text-xs text-red-600">{err('nivel')}</p>
-			{/if}
-		</div>
-		<div>
-			<label for="cat-genero" class="mb-1 block text-sm font-medium text-gray-700">
-				Género
-			</label>
-			<select
-				id="cat-genero"
-				bind:value={genero}
-				class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
-			>
-				{#each GENEROS_CATEGORIA as g (g)}
-					<option value={g}>{g}</option>
-				{/each}
-			</select>
-			{#if err('genero')}
-				<p class="mt-1 text-xs text-red-600">{err('genero')}</p>
-			{/if}
-		</div>
+		<SelectField id="cat-nivel" label="Categoría" bind:value={nivel} error={err('nivel')}>
+			{#each NIVELES_CATEGORIA as n (n)}
+				<option value={n}>{n}</option>
+			{/each}
+		</SelectField>
+		<SelectField id="cat-genero" label="Género" bind:value={genero} error={err('genero')}>
+			{#each GENEROS_CATEGORIA as g (g)}
+				<option value={g}>{g}</option>
+			{/each}
+		</SelectField>
 	</div>
 
-	<div>
-		<label for="cat-cupos" class="mb-1 block text-sm font-medium text-gray-700">
-			Cupos <span class="text-xs text-gray-400">(vacío = sin tope)</span>
-		</label>
-		<input
-			id="cat-cupos"
-			type="text"
-			inputmode="numeric"
-			pattern="[0-9]*"
-			bind:value={cuposStr}
-			class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
-			placeholder="32"
-		/>
-		{#if err('cupos')}
-			<p class="mt-1 text-xs text-red-600">{err('cupos')}</p>
-		{/if}
-	</div>
+	<TextField
+		id="cat-cupos"
+		label="Cupos (opcional)"
+		type="text"
+		inputmode="numeric"
+		pattern="[0-9]*"
+		bind:value={cuposStr}
+		error={err('cupos')}
+	/>
 
 	{#if errorGlobal}
 		<div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">

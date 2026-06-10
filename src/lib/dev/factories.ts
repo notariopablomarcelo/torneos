@@ -4,6 +4,7 @@ import {
 	type CategoriaInput,
 	type TorneoInput
 } from '$lib/types/torneo';
+import type { JugadorInput } from '$lib/types/jugador';
 
 // Factories de datos ficticios para el boton "Test" de los formularios.
 // Cada llamada devuelve datos nuevos (sin determinismo). A medida que sumemos
@@ -74,5 +75,75 @@ export function generarCategoriaInput(): CategoriaInput {
 		nivel: pick(NIVELES_CATEGORIA),
 		genero: pick(GENEROS_CATEGORIA),
 		cupos: pick([null, 16, 24, 32, 48] as const)
+	};
+}
+
+const NOMBRES = [
+	'Carlos',
+	'Juan',
+	'Diego',
+	'Martín',
+	'Pablo',
+	'Fernando',
+	'Ricardo',
+	'Roberto',
+	'Sebastián',
+	'Alejandro',
+	'Federico',
+	'Gonzalo',
+	'María',
+	'Ana',
+	'Laura',
+	'Sofía',
+	'Lucía',
+	'Carla',
+	'Florencia',
+	'Verónica',
+	'Camila',
+	'Romina'
+];
+
+const APELLIDOS = [
+	'González',
+	'Rodríguez',
+	'Pereira',
+	'Martínez',
+	'López',
+	'García',
+	'Fernández',
+	'Sánchez',
+	'Ramírez',
+	'Torres',
+	'Benítez',
+	'Acosta',
+	'Vega',
+	'Cáceres',
+	'Ramos',
+	'Gómez',
+	'Ortiz',
+	'Romero'
+];
+
+export function generarJugadorInput(): JugadorInput {
+	const nombre = pick(NOMBRES);
+	const apellido = pick(APELLIDOS);
+	// Telefono: ~70% de chance que tenga. Mezclamos Argentina (+54) y Paraguay
+	// (+595) para cubrir los dos paises del dominio. Cuando no tiene, null.
+	let telefono: string | null = null;
+	if (Math.random() < 0.7) {
+		const esArgentina = Math.random() < 0.5;
+		if (esArgentina) {
+			const area = Math.floor(11 + Math.random() * 388);
+			const num = Math.floor(1000000 + Math.random() * 9000000);
+			telefono = `+54 ${area}${num}`;
+		} else {
+			const area = Math.floor(10 + Math.random() * 90);
+			const num = Math.floor(100000 + Math.random() * 900000);
+			telefono = `+595 9${area}${num}`;
+		}
+	}
+	return {
+		nombreCompleto: `${nombre} ${apellido}`,
+		telefono
 	};
 }
