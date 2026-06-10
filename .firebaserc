@@ -1,19 +1,24 @@
 {
-	"projects": {
-		"default": "PENDIENTE-test",
-		"test": "PENDIENTE-test",
-		"prod": "PENDIENTE-prod"
-	},
-	"targets": {
-		"PENDIENTE-test": {
-			"hosting": {
-				"test": ["PENDIENTE-test"]
-			}
-		},
-		"PENDIENTE-prod": {
-			"hosting": {
-				"prod": ["PENDIENTE-prod"]
-			}
-		}
-	}
+  "projects": {
+    "default": "torneos-test-38927",
+    "test": "torneos-test-38927",
+    "prod": "PENDIENTE-prod"
+  },
+  "targets": {
+    "torneos-test-38927": {
+      "hosting": {
+        "test": [
+          "torneos-test-38927"
+        ]
+      }
+    },
+    "PENDIENTE-prod": {
+      "hosting": {
+        "prod": [
+          "PENDIENTE-prod"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

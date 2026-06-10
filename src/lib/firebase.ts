@@ -9,22 +9,18 @@ import { browser } from '$app/environment';
 // usa la config de prod; en cualquier otro caso (test, dev), usa la de test.
 
 const CONFIG_TEST = {
-	apiKey: 'PENDIENTE',
-	authDomain: 'PENDIENTE.firebaseapp.com',
-	projectId: 'PENDIENTE',
-	storageBucket: 'PENDIENTE.appspot.com',
-	messagingSenderId: 'PENDIENTE',
-	appId: 'PENDIENTE'
+	apiKey: 'AIzaSyCSRIeaF6NFBBxqm4oKhGOJAdfndCdUZjw',
+	authDomain: 'torneos-test-38927.firebaseapp.com',
+	projectId: 'torneos-test-38927',
+	storageBucket: 'torneos-test-38927.firebasestorage.app',
+	messagingSenderId: '19591048721',
+	appId: '1:19591048721:web:5b140a54d79736042bcbb0'
 } as const;
 
-const CONFIG_PROD = {
-	apiKey: 'PENDIENTE',
-	authDomain: 'PENDIENTE.firebaseapp.com',
-	projectId: 'PENDIENTE',
-	storageBucket: 'PENDIENTE.appspot.com',
-	messagingSenderId: 'PENDIENTE',
-	appId: 'PENDIENTE'
-} as const;
+// Mientras no haya proyecto de produccion, prod apunta a test para que la
+// inicializacion no falle si algo cae accidentalmente a esta rama. Cuando
+// se cree el proyecto -prod hay que reemplazar esto y poblar HOSTNAMES_PROD.
+const CONFIG_PROD = CONFIG_TEST;
 
 // Hostnames considerados producción. El resto cae a test.
 const HOSTNAMES_PROD: readonly string[] = [];
