@@ -95,34 +95,34 @@
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
 	<a
 		href="/torneos"
-		class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+		class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
 	>
 		<i class="bi bi-arrow-left"></i>
 		Torneos
 	</a>
 
 	{#if cargandoTorneo}
-		<div class="mt-6 rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400">
+		<div class="mt-6 rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-500">
 			<i class="bi bi-arrow-clockwise animate-spin text-3xl"></i>
 		</div>
 	{:else if !torneo}
-		<div class="mt-6 rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+		<div class="mt-6 rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/40 dark:text-red-400">
 			No se encontró el torneo.
 		</div>
 	{:else}
-		<section class="mt-3 mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
+		<section class="mt-3 mb-6 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
 			<div class="p-5">
-				<h1 class="text-xl font-bold text-gray-900">{torneo.nombre}</h1>
+				<h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">{torneo.nombre}</h1>
 				<div class="mt-2">
 					<RangoFechas inicio={torneo.fechaInicio} fin={torneo.fechaFin} />
 				</div>
 			</div>
-			<footer class="flex items-center justify-end gap-1 border-t border-gray-100 px-3 py-2">
+			<footer class="flex items-center justify-end gap-1 border-t border-gray-100 px-3 py-2 dark:border-gray-800">
 				<a
 					href={`/torneos/${id}/editar`}
 					title="Editar torneo"
 					aria-label="Editar torneo"
-					class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+					class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
 				>
 					<i class="bi bi-pencil"></i>
 				</a>
@@ -131,16 +131,16 @@
 					onclick={handleEliminarTorneo}
 					title="Eliminar torneo"
 					aria-label="Eliminar torneo"
-					class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-700"
+					class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-gray-400 dark:hover:bg-red-900/40 dark:hover:text-red-400"
 				>
 					<i class="bi bi-trash"></i>
 				</button>
 			</footer>
 		</section>
 
-		<section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+		<section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
 			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-lg font-semibold text-gray-900">Categorías</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Categorías</h2>
 				<button
 					type="button"
 					onclick={() => (sheetNueva = true)}
@@ -152,30 +152,30 @@
 			</div>
 
 			{#if cargandoCats}
-				<p class="py-8 text-center text-sm text-gray-400">
+				<p class="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
 					<i class="bi bi-arrow-clockwise animate-spin"></i> Cargando…
 				</p>
 			{:else if categorias.length === 0}
-				<p class="py-8 text-center text-sm text-gray-500">
+				<p class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
 					Todavía no hay categorías. Creá la primera para arrancar.
 				</p>
 			{:else}
 				<!-- Mismo divisor que la lista de inscripciones del detalle de
 				     categoria, para consistencia visual. -->
-				<ul class="divide-y-2 divide-gray-200">
+				<ul class="divide-y-2 divide-gray-200 dark:divide-gray-700">
 					{#each categoriasOrdenadas as c (c.id)}
 						<li>
 							<a
 								href={`/torneos/${id}/categorias/${c.id}`}
-								class="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 hover:bg-gray-50"
+								class="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 hover:bg-gray-50 dark:hover:bg-gray-800"
 							>
 								<div class="min-w-0 flex-1">
-									<p class="font-medium text-gray-900">{nombreCategoria(c)}</p>
-									<p class="text-xs text-gray-500">
+									<p class="font-medium text-gray-900 dark:text-gray-100">{nombreCategoria(c)}</p>
+									<p class="text-xs text-gray-500 dark:text-gray-400">
 										{c.cupos === null ? 'Sin tope de cupos' : `${c.cupos} cupos`}
 									</p>
 								</div>
-								<i class="bi bi-chevron-right text-gray-400"></i>
+								<i class="bi bi-chevron-right text-gray-400 dark:text-gray-500"></i>
 							</a>
 						</li>
 					{/each}

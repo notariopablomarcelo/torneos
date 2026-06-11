@@ -76,15 +76,15 @@
 		aria-haspopup="listbox"
 		aria-expanded={abierto}
 		aria-controls={`${id}-list`}
-		class="block w-full rounded-lg border bg-white px-3 pt-5 pr-9 pb-1.5 text-left text-sm focus:outline-none focus:ring-2 disabled:bg-gray-50 disabled:text-gray-400 {error
+		class="block w-full rounded-lg border bg-white dark:bg-gray-900 px-3 pt-5 pr-9 pb-1.5 text-left text-sm focus:outline-none focus:ring-2 disabled:bg-gray-50 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-500 {error
 			? 'border-red-400 focus:border-red-500 focus:ring-red-200'
-			: 'border-gray-300 focus:border-brand-500 focus:ring-brand-200'}"
+			: 'border-gray-300 dark:border-gray-700 focus:border-brand-500 focus:ring-brand-200'}"
 	>
-		<span class={seleccionado ? 'text-gray-900' : 'text-gray-400'}>
+		<span class={seleccionado ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}>
 			{seleccionado?.label ?? 'Elegir…'}
 		</span>
 		<i
-			class="bi bi-chevron-down absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 transition-transform {abierto
+			class="bi bi-chevron-down absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 dark:text-gray-500 transition-transform {abierto
 				? 'rotate-180'
 				: ''}"
 		></i>
@@ -93,7 +93,7 @@
 		for={id}
 		class="pointer-events-none absolute start-3 top-1 z-10 text-xs {error
 			? 'text-red-600'
-			: 'text-gray-500'}"
+			: 'text-gray-500 dark:text-gray-400'}"
 	>
 		{label}
 	</label>
@@ -102,7 +102,7 @@
 		<ul
 			id={`${id}-list`}
 			role="listbox"
-			class="absolute top-full right-0 left-0 z-30 mt-1 max-h-60 overflow-y-auto overscroll-contain rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+			class="absolute top-full right-0 left-0 z-30 mt-1 max-h-60 overflow-y-auto overscroll-contain rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-1 shadow-lg"
 		>
 			{#each options as o (o.value)}
 				<li>
@@ -111,10 +111,10 @@
 						role="option"
 						aria-selected={o.value === value}
 						onclick={() => seleccionar(o.value)}
-						class="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 {o.value ===
+						class="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 {o.value ===
 						value
-							? 'bg-brand-50 font-medium text-brand-700'
-							: 'text-gray-900'}"
+							? 'bg-brand-50 dark:bg-brand-900/40 font-medium text-brand-700 dark:text-brand-300'
+							: 'text-gray-900 dark:text-gray-100'}"
 					>
 						{o.label}
 					</button>

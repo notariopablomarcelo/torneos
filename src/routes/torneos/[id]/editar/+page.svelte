@@ -50,24 +50,24 @@
 	<header class="mb-6">
 		<a
 			href={`/torneos/${id}`}
-			class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+			class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
 		>
 			<i class="bi bi-arrow-left"></i>
 			Volver al torneo
 		</a>
-		<h1 class="mt-2 text-2xl font-bold text-gray-900">Editar torneo</h1>
+		<h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">Editar torneo</h1>
 	</header>
 
 	{#if cargando}
-		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400">
+		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-500">
 			<i class="bi bi-arrow-clockwise animate-spin text-3xl"></i>
 		</div>
 	{:else if error}
-		<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+		<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/40 dark:text-red-400">
 			{error}
 		</div>
 	{:else if torneo}
-		<div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+		<div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
 			<TorneoForm
 				initial={{
 					nombre: torneo.nombre,

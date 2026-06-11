@@ -91,7 +91,7 @@
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
 	<header class="mb-6 flex items-center justify-between">
-		<h1 class="text-2xl font-bold text-gray-900">Jugadores</h1>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Jugadores</h1>
 		<button
 			type="button"
 			onclick={() => (sheetNuevo = true)}
@@ -106,28 +106,28 @@
 	<div class="mb-4">
 		<div class="relative">
 			<i
-				class="bi bi-search absolute top-1/2 left-3 -translate-y-1/2 text-gray-400"
+				class="bi bi-search absolute top-1/2 left-3 -translate-y-1/2 text-gray-400 dark:text-gray-500"
 			></i>
 			<input
 				type="search"
 				bind:value={busqueda}
 				placeholder="Buscar por nombre…"
 				aria-label="Buscar jugador"
-				class="w-full rounded-lg border border-gray-300 bg-white py-2 pr-3 pl-9 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+				class="w-full rounded-lg border border-gray-300 bg-white py-2 pr-3 pl-9 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none dark:border-gray-700 dark:bg-gray-900"
 			/>
 		</div>
 	</div>
 
 	{#if cargando}
-		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400">
+		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-500">
 			<i class="bi bi-arrow-clockwise animate-spin text-3xl"></i>
 			<p class="mt-2 text-sm">Cargando…</p>
 		</div>
 	{:else if jugadores.length === 0}
 		<div
-			class="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500"
+			class="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
 		>
-			<i class="bi bi-person text-4xl text-gray-300"></i>
+			<i class="bi bi-person text-4xl text-gray-300 dark:text-gray-600"></i>
 			<p class="mt-3 font-medium">Todavía no hay jugadores</p>
 			<p class="text-sm">Cargá el primero para empezar a usarlos en los torneos.</p>
 			<button
@@ -140,12 +140,12 @@
 			</button>
 		</div>
 	{:else if jugadoresFiltrados.length === 0}
-		<div class="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+		<div class="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
 			Sin resultados para "{busqueda}".
 		</div>
 	{:else}
 		<!-- Contador chico arriba de la lista, estilo PadelRoom. -->
-		<p class="mb-2 text-xs text-gray-400">
+		<p class="mb-2 text-xs text-gray-400 dark:text-gray-500">
 			{jugadoresFiltrados.length}
 			{jugadoresFiltrados.length === 1 ? 'jugador' : 'jugadores'}
 		</p>
@@ -159,19 +159,19 @@
 						type="button"
 						onclick={() => (editandoId = j.id)}
 						aria-label="Editar {j.nombreCompleto}"
-						class="flex w-full items-center gap-2.5 rounded-[10px] border border-gray-200 bg-white px-3.5 py-3 text-left hover:border-gray-300 hover:bg-gray-50"
+						class="flex w-full items-center gap-2.5 rounded-[10px] border border-gray-200 bg-white px-3.5 py-3 text-left hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 dark:hover:bg-gray-800"
 					>
 						<div class="min-w-0 flex-1">
-							<p class="truncate text-[15px] font-semibold text-gray-900">
+							<p class="truncate text-[15px] font-semibold text-gray-900 dark:text-gray-100">
 								{j.nombreCompleto}
 							</p>
 							{#if j.telefono}
-								<p class="truncate text-xs text-gray-500">{j.telefono}</p>
+								<p class="truncate text-xs text-gray-500 dark:text-gray-400">{j.telefono}</p>
 							{:else}
-								<p class="truncate text-xs text-amber-700 italic">Sin teléfono</p>
+								<p class="truncate text-xs text-amber-700 italic dark:text-amber-300">Sin teléfono</p>
 							{/if}
 						</div>
-						<i class="bi bi-chevron-right shrink-0 text-base text-gray-300"></i>
+						<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>
 					</button>
 				</li>
 			{/each}

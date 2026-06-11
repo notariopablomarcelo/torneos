@@ -55,17 +55,17 @@
 		{disabled}
 		bind:value
 		placeholder=" "
-		class="peer block w-full appearance-none rounded-lg border bg-white px-3 pt-5 pb-1.5 text-sm focus:outline-none focus:ring-2 disabled:bg-gray-50 disabled:text-gray-400 {error
+		class="peer block w-full appearance-none rounded-lg border bg-white dark:bg-gray-900 px-3 pt-5 pb-1.5 text-sm focus:outline-none focus:ring-2 disabled:bg-gray-50 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-500 {error
 			? 'border-red-400 focus:border-red-500 focus:ring-red-200'
-			: 'border-gray-300 focus:border-brand-500 focus:ring-brand-200'}"
+			: 'border-gray-300 dark:border-gray-700 focus:border-brand-500 focus:ring-brand-200'}"
 	/>
 	<label
 		for={id}
 		class="pointer-events-none absolute start-3 top-1 z-10 origin-[0] text-xs transition-all
 			{floating
-			? 'peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-1 peer-focus:translate-y-0 peer-focus:text-xs'
+			? 'peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 dark:peer-placeholder-shown:text-gray-500 peer-focus:top-1 peer-focus:translate-y-0 peer-focus:text-xs'
 			: ''}
-			{error ? 'text-red-600 peer-focus:text-red-600' : 'text-gray-500 peer-focus:text-brand-600'}"
+			{error ? 'text-red-600 peer-focus:text-red-600' : 'text-gray-500 dark:text-gray-400 peer-focus:text-brand-600 dark:peer-focus:text-brand-400'}"
 	>
 		{label}
 	</label>

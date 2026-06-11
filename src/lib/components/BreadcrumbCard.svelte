@@ -15,25 +15,34 @@
 	let { items }: { items: Item[] } = $props();
 </script>
 
-<section class="mb-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-	<ul class="divide-y divide-gray-100">
+<section
+	class="mb-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900"
+>
+	<ul class="divide-y divide-gray-100 dark:divide-gray-800">
 		{#each items as item, i (i)}
 			<li>
 				{#if item.href}
-					<a href={item.href} class="block px-4 py-3 hover:bg-gray-50">
-						<p class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase">
+					<a
+						href={item.href}
+						class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800"
+					>
+						<p
+							class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase dark:text-gray-500"
+						>
 							{item.prefijo}
 						</p>
-						<p class="mt-0.5 truncate text-sm font-semibold text-gray-900">
+						<p class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
 							{item.label}
 						</p>
 					</a>
 				{:else}
 					<div class="px-4 py-3">
-						<p class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase">
+						<p
+							class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase dark:text-gray-500"
+						>
 							{item.prefijo}
 						</p>
-						<p class="mt-0.5 truncate text-sm font-semibold text-gray-900">
+						<p class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
 							{item.label}
 						</p>
 					</div>

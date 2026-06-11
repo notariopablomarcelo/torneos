@@ -191,7 +191,7 @@
 	/>
 
 	{#if errorGlobal}
-		<div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+		<div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/40 dark:text-red-400">
 			{errorGlobal}
 		</div>
 	{/if}
@@ -203,7 +203,7 @@
 					type="button"
 					onclick={handleEliminarClick}
 					disabled={guardando || borrando}
-					class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 sm:flex-none"
+					class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 sm:flex-none dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/40"
 				>
 					{#if borrando}
 						<i class="bi bi-arrow-clockwise animate-spin"></i>
@@ -219,7 +219,7 @@
 					onclick={handleTest}
 					disabled={guardando || borrando}
 					title="Rellenar con datos de prueba"
-					class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-400 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 sm:flex-none"
+					class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-400 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 sm:flex-none dark:text-gray-400 dark:hover:bg-gray-800"
 				>
 					<i class="bi bi-magic"></i>
 					Test
@@ -232,7 +232,7 @@
 					type="button"
 					onclick={onCancel}
 					disabled={guardando || borrando}
-					class="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:flex-none"
+					class="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:flex-none dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
 				>
 					Cancelar
 				</button>

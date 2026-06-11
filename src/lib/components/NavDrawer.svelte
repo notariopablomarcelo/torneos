@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { tema } from '$lib/stores/tema';
 
 	// Drawer lateral izquierdo, estilo PadelRoom. Agrupa la navegacion por
 	// secciones (Torneos / Jugadores). Hoy cada seccion tiene un solo item;
@@ -57,13 +58,13 @@
 <!-- Drawer: siempre montado, slide via transform. -->
 <aside
 	aria-hidden={!open}
-	class="fixed top-0 left-0 z-50 flex h-full w-72 max-w-[80vw] transform flex-col bg-white shadow-xl transition-transform duration-300 ease-out {open
+	class="fixed top-0 left-0 z-50 flex h-full w-72 max-w-[80vw] transform flex-col bg-white shadow-xl transition-transform duration-300 ease-out dark:bg-gray-900 {open
 		? 'translate-x-0'
 		: '-translate-x-full'}"
 >
 	<!-- Header del drawer (color de marca). -->
 	<div
-		class="flex items-center justify-between gap-3 bg-brand-600 px-5 py-4 text-white"
+		class="flex items-center justify-between gap-3 bg-brand-600 px-5 py-4 text-white dark:bg-brand-700"
 	>
 		<div class="flex items-center gap-2">
 			<i class="bi bi-trophy text-lg"></i>
@@ -90,8 +91,8 @@
 						onclick={() => navegar(item.href)}
 						aria-current={activo ? 'page' : undefined}
 						class="flex w-full items-center gap-3 px-5 py-3 text-sm transition {activo
-							? 'bg-brand-50 font-semibold text-brand-700'
-							: 'text-gray-700 hover:bg-gray-50'}"
+							? 'bg-brand-50 font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300'
+							: 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'}"
 					>
 						<i class="bi {item.icono} text-base"></i>
 						<span>{item.label}</span>
@@ -100,4 +101,19 @@
 			{/each}
 		</ul>
 	</nav>
+
+	<!-- Footer: toggle de tema. -->
+	<footer class="border-t border-gray-100 dark:border-gray-800">
+		<button
+			type="button"
+			onclick={() => tema.toggle()}
+			aria-label={$tema === 'oscuro' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+			class="flex w-full items-center gap-3 px-5 py-3 text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+		>
+			<i
+				class="bi {$tema === 'oscuro' ? 'bi-sun' : 'bi-moon-stars'} text-base"
+			></i>
+			<span>{$tema === 'oscuro' ? 'Modo claro' : 'Modo oscuro'}</span>
+		</button>
+	</footer>
 </aside>

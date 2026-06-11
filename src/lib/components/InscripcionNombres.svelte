@@ -14,5 +14,5 @@
 </script>
 
 {#each nombres as n, i (i)}
-	<p class="truncate text-sm text-gray-900 {extraClass}">{n}</p>
+	<p class="truncate text-sm text-gray-900 dark:text-gray-100 {extraClass}">{n}</p>
 {/each}

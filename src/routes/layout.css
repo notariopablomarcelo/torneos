@@ -2,6 +2,16 @@
 @import 'bootstrap-icons/font/bootstrap-icons.css';
 
 /*
+ * Dark mode "manual" (clase en <html>). Tailwind 4 por default usa
+ * prefers-color-scheme; con esta directiva el variant `dark:` aplica solo
+ * cuando hay un ancestro con clase .dark. El store de tema (src/lib/stores/
+ * tema.ts) toggle esa clase y persiste la eleccion en localStorage. Un
+ * script inline en app.html aplica la clase antes del primer paint para
+ * evitar el "flash of wrong theme".
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
  * Polyfill de banderas (Windows/Chrome desktop no tienen los glyphs de
  * country emojis). La libreria country-flag-emoji-polyfill inyecta el
  * @font-face de "Twemoji Country Flags" — una font que SOLO tiene glifos

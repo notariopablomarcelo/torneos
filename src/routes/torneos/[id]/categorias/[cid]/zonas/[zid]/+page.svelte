@@ -298,21 +298,21 @@
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
 	{#if cargando}
-		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400">
+		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-500">
 			<i class="bi bi-arrow-clockwise animate-spin text-3xl"></i>
 		</div>
 	{:else if errorCarga}
-		<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+		<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/40 dark:text-red-400">
 			{errorCarga}
 		</div>
 	{:else if !zona}
-		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-500">
+		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
 			<p class="font-medium">Zona no encontrada</p>
 		</div>
 	{:else}
 		<a
 			href={`/torneos/${tid}/categorias/${cid}/zonas`}
-			class="mb-3 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+			class="mb-3 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
 		>
 			<i class="bi bi-arrow-left"></i>
 			Volver
@@ -331,13 +331,13 @@
 		<header class="mb-4 flex items-center justify-between gap-3">
 			<div class="flex items-center gap-3">
 				<span
-					class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg font-bold text-brand-700"
+					class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg font-bold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
 				>
 					{zona.letra}
 				</span>
 				<div>
-					<h1 class="text-xl font-bold text-gray-900">Zona {zona.letra}</h1>
-					<p class="text-xs text-gray-500">
+					<h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">Zona {zona.letra}</h1>
+					<p class="text-xs text-gray-500 dark:text-gray-400">
 						{zona.tamano} parejas ·
 						{zona.modalidad === 'dobleOportunidad'
 							? 'doble oportunidad'
@@ -351,8 +351,8 @@
 					<span
 						class="rounded-full px-2 py-0.5 text-[10px] font-semibold {est ===
 						'Finalizada'
-							? 'bg-gray-100 text-gray-700'
-							: 'bg-amber-100 text-amber-800'}"
+							? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+							: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'}"
 					>
 						{est === 'Finalizada' ? 'Finalizada' : 'En curso'}
 					</span>
@@ -362,7 +362,7 @@
 		</header>
 
 		<!-- Tabs segmented control: posiciones / partidos. -->
-		<div class="mb-4 flex w-full items-center gap-1 rounded-xl bg-gray-100 p-1">
+		<div class="mb-4 flex w-full items-center gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
 			<button
 				type="button"
 				role="tab"
@@ -370,8 +370,8 @@
 				onclick={() => (tabActiva = 'posiciones')}
 				class="flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition {tabActiva ===
 				'posiciones'
-					? 'bg-white font-semibold text-brand-700 shadow-sm ring-1 ring-black/5'
-					: 'bg-transparent font-medium text-gray-500 hover:text-gray-700'}"
+					? 'bg-white font-semibold text-brand-700 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:text-brand-300'
+					: 'bg-transparent font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}"
 			>
 				<i class="bi bi-list-ol text-base"></i>
 				<span>Posiciones</span>
@@ -383,16 +383,16 @@
 				onclick={() => (tabActiva = 'partidos')}
 				class="flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition {tabActiva ===
 				'partidos'
-					? 'bg-white font-semibold text-brand-700 shadow-sm ring-1 ring-black/5'
-					: 'bg-transparent font-medium text-gray-500 hover:text-gray-700'}"
+					? 'bg-white font-semibold text-brand-700 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:text-brand-300'
+					: 'bg-transparent font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}"
 			>
 				<i class="bi bi-trophy text-base"></i>
 				<span>Partidos</span>
 				<span
 					class="ml-0.5 inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold {tabActiva ===
 					'partidos'
-						? 'bg-brand-50 text-brand-600'
-						: 'bg-gray-200 text-gray-600'}"
+						? 'bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400'
+						: 'bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}"
 				>
 					{partidosZ.length}
 				</span>
@@ -400,7 +400,7 @@
 		</div>
 
 		{#if tabActiva === 'posiciones'}
-		<section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+		<section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
 			<ul class="space-y-2">
 				{#each tabla as fila, idx (fila.inscripcionId)}
 					{@const insc = inscripcionesPorId.get(fila.inscripcionId)}
@@ -408,14 +408,14 @@
 					<li
 						class="flex items-start gap-3 rounded-lg border p-3 {hayJugados &&
 						clasifica
-							? 'border-brand-200 bg-brand-50'
-							: 'border-gray-100 bg-gray-50'}"
+							? 'border-brand-200 bg-brand-50 dark:border-brand-700 dark:bg-brand-900/40'
+							: 'border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-800'}"
 					>
 						<span
 							class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-semibold {hayJugados &&
 							clasifica
-								? 'text-brand-700 ring-1 ring-brand-200'
-								: 'text-gray-700 ring-1 ring-gray-200'}"
+								? 'text-brand-700 ring-1 ring-brand-200 dark:bg-gray-900 dark:text-brand-300 dark:ring-brand-700'
+								: 'text-gray-700 ring-1 ring-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700'}"
 						>
 							{idx + 1}
 						</span>
@@ -425,24 +425,24 @@
 									nombres={nombresJugadores(insc, jugadoresPorId)}
 								/>
 							{:else}
-								<p class="text-sm text-gray-500 italic">Pareja desconocida</p>
+								<p class="text-sm text-gray-500 italic dark:text-gray-400">Pareja desconocida</p>
 							{/if}
 							{#if hayJugados}
 								<p
-									class="mt-1 flex items-center gap-2 text-[10px] text-gray-500"
+									class="mt-1 flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400"
 								>
 									<span
-										>PG <strong class="text-gray-700">{fila.pg}</strong></span
+										>PG <strong class="text-gray-700 dark:text-gray-300">{fila.pg}</strong></span
 									>
-									<span class="text-gray-300">·</span>
+									<span class="text-gray-300 dark:text-gray-600">·</span>
 									<span
-										>Sets <strong class="text-gray-700"
+										>Sets <strong class="text-gray-700 dark:text-gray-300"
 											>{fila.sf}-{fila.sc}</strong
 										></span
 									>
-									<span class="text-gray-300">·</span>
+									<span class="text-gray-300 dark:text-gray-600">·</span>
 									<span
-										>Games <strong class="text-gray-700"
+										>Games <strong class="text-gray-700 dark:text-gray-300"
 											>{fila.gf}-{fila.gc}</strong
 										></span
 									>
@@ -451,7 +451,7 @@
 						</div>
 						{#if insc?.ranking != null}
 							<span
-								class="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200"
+								class="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:ring-gray-700"
 								title={`Ranking ${insc.ranking}`}
 							>
 								#{insc.ranking}
@@ -463,9 +463,9 @@
 		</section>
 
 		{:else}
-		<section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+		<section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
 			{#if partidosZ.length === 0}
-				<p class="py-6 text-center text-xs text-gray-500">Sin partidos.</p>
+				<p class="py-6 text-center text-xs text-gray-500 dark:text-gray-400">Sin partidos.</p>
 			{:else}
 				<ul class="space-y-2">
 					{#each partidosZ as p (p.id)}
@@ -477,17 +477,17 @@
 						{@const sets = p.resultado?.sets ?? []}
 						{@const esWO = jugado && p.resultado!.motivo === 'WO'}
 						<li
-							class="rounded-lg border bg-white p-3 {jugado
-								? 'border-gray-200'
-								: 'border-gray-100'}"
+							class="rounded-lg border bg-white p-3 dark:bg-gray-900 {jugado
+								? 'border-gray-200 dark:border-gray-800'
+								: 'border-gray-100 dark:border-gray-800'}"
 						>
 							<div class="mb-2 flex items-center justify-between gap-2">
-								<p class="text-xs font-semibold tracking-wide text-brand-700">
+								<p class="text-xs font-semibold tracking-wide text-brand-700 dark:text-brand-300">
 									P{p.numeroEnZona}
 								</p>
 								{#if jugado && p.resultado!.motivo !== 'normal'}
 									<span
-										class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 uppercase"
+										class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 uppercase dark:bg-amber-900/40 dark:text-amber-300"
 									>
 										{p.resultado!.motivo === 'WO' ? 'W.O.' : 'abandono'}
 									</span>
@@ -501,8 +501,8 @@
 									{#each nombres1 as n, j (j)}
 										<p
 											class="truncate text-sm {gana1
-												? 'font-semibold text-brand-700'
-												: 'font-medium text-gray-900'}"
+												? 'font-semibold text-brand-700 dark:text-brand-300'
+												: 'font-medium text-gray-900 dark:text-gray-100'}"
 										>
 											{n}
 										</p>
@@ -513,8 +513,8 @@
 										{#each sets as s, i (i)}
 											<span
 												class="font-mono text-sm {gana1
-													? 'font-semibold text-brand-700'
-													: 'text-gray-700'}"
+													? 'font-semibold text-brand-700 dark:text-brand-300'
+													: 'text-gray-700 dark:text-gray-300'}"
 											>
 												{s.p1}{#if s.tiebreakP1 !== undefined}<sup
 														class="text-[10px]">{s.tiebreakP1}</sup
@@ -525,8 +525,8 @@
 								{:else if esWO}
 									<span
 										class="shrink-0 font-mono text-xs {gana1
-											? 'font-semibold text-brand-700'
-											: 'text-gray-500'}"
+											? 'font-semibold text-brand-700 dark:text-brand-300'
+											: 'text-gray-500 dark:text-gray-400'}"
 									>
 										{gana1 ? 'W' : '–'}
 									</span>
@@ -543,8 +543,8 @@
 									{#each nombres2 as n, j (j)}
 										<p
 											class="truncate text-sm {gana2
-												? 'font-semibold text-brand-700'
-												: 'font-medium text-gray-900'}"
+												? 'font-semibold text-brand-700 dark:text-brand-300'
+												: 'font-medium text-gray-900 dark:text-gray-100'}"
 										>
 											{n}
 										</p>
@@ -555,8 +555,8 @@
 										{#each sets as s, i (i)}
 											<span
 												class="font-mono text-sm {gana2
-													? 'font-semibold text-brand-700'
-													: 'text-gray-700'}"
+													? 'font-semibold text-brand-700 dark:text-brand-300'
+													: 'text-gray-700 dark:text-gray-300'}"
 											>
 												{s.p2}{#if s.tiebreakP2 !== undefined}<sup
 														class="text-[10px]">{s.tiebreakP2}</sup
@@ -567,8 +567,8 @@
 								{:else if esWO}
 									<span
 										class="shrink-0 font-mono text-xs {gana2
-											? 'font-semibold text-brand-700'
-											: 'text-gray-500'}"
+											? 'font-semibold text-brand-700 dark:text-brand-300'
+											: 'text-gray-500 dark:text-gray-400'}"
 									>
 										{gana2 ? 'W' : '–'}
 									</span>
@@ -583,12 +583,12 @@
 							</div>
 
 							<div
-								class="mt-3 flex justify-end border-t border-gray-100 pt-2"
+								class="mt-3 flex justify-end border-t border-gray-100 pt-2 dark:border-gray-800"
 							>
 								<button
 									type="button"
 									onclick={() => abrirResultado(p.id)}
-									class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
+									class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-900/40"
 								>
 									<i class="bi {jugado ? 'bi-pencil' : 'bi-plus-circle'}"></i>
 									{jugado ? 'Editar' : 'Cargar'}
@@ -634,7 +634,7 @@
 	title={zona ? `Modalidad Zona ${zona.letra}` : 'Modalidad'}
 >
 	{#if zona}
-		<p class="mb-3 text-sm text-gray-600">
+		<p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
 			La zona tiene 4 parejas. Elegí la modalidad de los partidos.
 		</p>
 
@@ -645,18 +645,18 @@
 				aria-pressed={nuevaModalidad === 'todosContraTodos'}
 				class="block w-full rounded-lg border p-3 text-left transition {nuevaModalidad ===
 				'todosContraTodos'
-					? 'border-brand-500 bg-brand-50 ring-2 ring-brand-200'
-					: 'border-gray-200 bg-white hover:border-gray-300'}"
+					? 'border-brand-500 bg-brand-50 ring-2 ring-brand-200 dark:bg-brand-900/40 dark:ring-brand-700'
+					: 'border-gray-200 bg-white hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'}"
 			>
 				<div class="flex items-start gap-2">
 					<i
 						class="bi {nuevaModalidad === 'todosContraTodos'
 							? 'bi-check-circle-fill text-brand-500'
-							: 'bi-circle text-gray-300'} mt-0.5"
+							: 'bi-circle text-gray-300 dark:text-gray-600'} mt-0.5"
 					></i>
 					<div>
-						<p class="font-medium text-gray-900">Todos contra todos</p>
-						<p class="mt-0.5 text-xs text-gray-600">
+						<p class="font-medium text-gray-900 dark:text-gray-100">Todos contra todos</p>
+						<p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
 							6 partidos por zona. Cada pareja juega contra todas las otras.
 						</p>
 					</div>
@@ -669,18 +669,18 @@
 				aria-pressed={nuevaModalidad === 'dobleOportunidad'}
 				class="block w-full rounded-lg border p-3 text-left transition {nuevaModalidad ===
 				'dobleOportunidad'
-					? 'border-brand-500 bg-brand-50 ring-2 ring-brand-200'
-					: 'border-gray-200 bg-white hover:border-gray-300'}"
+					? 'border-brand-500 bg-brand-50 ring-2 ring-brand-200 dark:bg-brand-900/40 dark:ring-brand-700'
+					: 'border-gray-200 bg-white hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'}"
 			>
 				<div class="flex items-start gap-2">
 					<i
 						class="bi {nuevaModalidad === 'dobleOportunidad'
 							? 'bi-check-circle-fill text-brand-500'
-							: 'bi-circle text-gray-300'} mt-0.5"
+							: 'bi-circle text-gray-300 dark:text-gray-600'} mt-0.5"
 					></i>
 					<div>
-						<p class="font-medium text-gray-900">Doble oportunidad</p>
-						<p class="mt-0.5 text-xs text-gray-600">
+						<p class="font-medium text-gray-900 dark:text-gray-100">Doble oportunidad</p>
+						<p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
 							4 partidos. Cruces 1v4 y 2v3, después ganadores entre sí y
 							perdedores tienen segunda chance.
 						</p>
@@ -691,7 +691,7 @@
 
 		{#if nuevaModalidad !== zona.modalidad}
 			<p
-				class="mt-3 flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-xs text-amber-800"
+				class="mt-3 flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
 			>
 				<i class="bi bi-info-circle mt-0.5"></i>
 				<span>
@@ -706,7 +706,7 @@
 				type="button"
 				onclick={() => (sheetModalidad = false)}
 				disabled={aplicandoModalidad}
-				class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+				class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
 			>
 				Cancelar
 			</button>
@@ -732,7 +732,7 @@
 	title={zona ? `Clasifican Zona ${zona.letra}` : 'Clasifican'}
 >
 	{#if zona}
-		<p class="mb-3 text-sm text-gray-600">
+		<p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
 			Cuántas parejas de la Zona {zona.letra} pasan al bracket eliminatorio.
 		</p>
 
@@ -744,23 +744,23 @@
 					aria-pressed={nuevoClasifican === n}
 					class="block w-full rounded-lg border p-3 text-left transition {nuevoClasifican ===
 					n
-						? 'border-brand-500 bg-brand-50 ring-2 ring-brand-200'
-						: 'border-gray-200 bg-white hover:border-gray-300'}"
+						? 'border-brand-500 bg-brand-50 ring-2 ring-brand-200 dark:bg-brand-900/40 dark:ring-brand-700'
+						: 'border-gray-200 bg-white hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'}"
 				>
 					<div class="flex items-start gap-2">
 						<i
 							class="bi {nuevoClasifican === n
 								? 'bi-check-circle-fill text-brand-500'
-								: 'bi-circle text-gray-300'} mt-0.5"
+								: 'bi-circle text-gray-300 dark:text-gray-600'} mt-0.5"
 						></i>
 						<div>
-							<p class="font-medium text-gray-900">
+							<p class="font-medium text-gray-900 dark:text-gray-100">
 								{n} por zona
-								{#if n === 2}<span class="text-xs font-normal text-gray-500"
+								{#if n === 2}<span class="text-xs font-normal text-gray-500 dark:text-gray-400"
 										>(FAP)</span
 									>{/if}
 							</p>
-							<p class="mt-0.5 text-xs text-gray-600">
+							<p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
 								{#if n === 1}
 									Solo el campeón pasa al bracket. Más exigente.
 								{:else if n === 2}
@@ -780,7 +780,7 @@
 				type="button"
 				onclick={() => (sheetClasifican = false)}
 				disabled={aplicandoClasifican}
-				class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+				class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
 			>
 				Cancelar
 			</button>

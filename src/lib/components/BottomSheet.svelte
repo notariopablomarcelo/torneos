@@ -33,16 +33,16 @@
 	bind:this={dialog}
 	onclose={onClose}
 	onclick={handleClick}
-	class="m-auto max-h-[90vh] w-[calc(100vw-2rem)] max-w-md overflow-y-auto rounded-2xl bg-white p-0 shadow-2xl backdrop:bg-black/60"
+	class="m-auto max-h-[90vh] w-[calc(100vw-2rem)] max-w-md overflow-y-auto rounded-2xl bg-white p-0 text-gray-900 shadow-2xl backdrop:bg-black/60 dark:bg-gray-900 dark:text-gray-100"
 >
 	<div
-		class="sticky top-0 flex items-center justify-between border-b border-gray-200 bg-white px-5 py-4"
+		class="sticky top-0 flex items-center justify-between border-b border-gray-200 bg-white px-5 py-4 dark:border-gray-800 dark:bg-gray-900"
 	>
-		<h2 class="text-lg font-semibold text-gray-900">{title ?? ''}</h2>
+		<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{title ?? ''}</h2>
 		<button
 			type="button"
 			onclick={onClose}
-			class="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+			class="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
 			aria-label="Cerrar"
 		>
 			<i class="bi bi-x-lg"></i>

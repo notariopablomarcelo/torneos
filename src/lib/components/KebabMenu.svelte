@@ -63,7 +63,7 @@
 		aria-label={label}
 		aria-haspopup="menu"
 		aria-expanded={abierto}
-		class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+		class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
 	>
 		<i class="bi bi-three-dots-vertical"></i>
 	</button>
@@ -71,7 +71,7 @@
 	{#if abierto}
 		<div
 			role="menu"
-			class="absolute top-full right-0 z-30 mt-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+			class="absolute top-full right-0 z-30 mt-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900"
 		>
 			{#each items as item (item.label)}
 				<button
@@ -79,8 +79,8 @@
 					role="menuitem"
 					onclick={() => ejecutar(item)}
 					class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition {item.destructive
-						? 'text-red-700 hover:bg-red-50'
-						: 'text-gray-700 hover:bg-gray-50'}"
+						? 'text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/40'
+						: 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'}"
 				>
 					{#if item.icono}
 						<i class="bi {item.icono} w-4"></i>

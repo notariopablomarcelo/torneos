@@ -33,15 +33,15 @@
 	<header class="mb-6">
 		<a
 			href="/torneos"
-			class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+			class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
 		>
 			<i class="bi bi-arrow-left"></i>
 			Torneos
 		</a>
-		<h1 class="mt-2 text-2xl font-bold text-gray-900">Nuevo torneo</h1>
+		<h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">Nuevo torneo</h1>
 	</header>
 
-	<div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+	<div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
 		<TorneoForm
 			{initial}
 			submitLabel="Crear"

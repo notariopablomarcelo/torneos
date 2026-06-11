@@ -61,14 +61,14 @@
 	<div class="space-y-3">
 		<div class="relative">
 			<i
-				class="bi bi-search absolute top-1/2 left-3 -translate-y-1/2 text-gray-400"
+				class="bi bi-search absolute top-1/2 left-3 -translate-y-1/2 text-gray-400 dark:text-gray-500"
 			></i>
 			<input
 				type="search"
 				bind:value={busqueda}
 				placeholder="Buscar…"
 				aria-label="Buscar jugador"
-				class="w-full rounded-lg border border-gray-300 bg-white py-2 pr-3 pl-9 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+				class="w-full rounded-lg border border-gray-300 bg-white py-2 pr-3 pl-9 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none dark:border-gray-700 dark:bg-gray-900"
 			/>
 		</div>
 
@@ -76,7 +76,7 @@
 			<button
 				type="button"
 				onclick={() => seleccionar(null)}
-				class="flex w-full items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+				class="flex w-full items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/40 dark:text-red-400"
 			>
 				<i class="bi bi-x-circle"></i>
 				Quitar selección
@@ -84,21 +84,21 @@
 		{/if}
 
 		{#if opciones.length === 0}
-			<p class="py-8 text-center text-sm text-gray-500">
+			<p class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
 				{busqueda ? `Sin resultados para "${busqueda}"` : 'No hay jugadores disponibles'}
 			</p>
 		{:else}
 			<ul
-				class="max-h-[55vh] divide-y divide-gray-100 overflow-y-auto overscroll-contain rounded-lg border border-gray-200"
+				class="max-h-[55vh] divide-y divide-gray-100 overflow-y-auto overscroll-contain rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800"
 			>
 				{#each opciones as o (o.id)}
 					<li>
 						<button
 							type="button"
 							onclick={() => seleccionar(o.id)}
-							class="block w-full px-3 py-3 text-left text-sm hover:bg-gray-50 {o.id === value
-								? 'bg-brand-50 font-medium text-brand-700'
-								: 'text-gray-900'}"
+							class="block w-full px-3 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 {o.id === value
+								? 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-900/40 dark:text-brand-300'
+								: 'text-gray-900 dark:text-gray-100'}"
 						>
 							{o.nombreCompleto}
 						</button>

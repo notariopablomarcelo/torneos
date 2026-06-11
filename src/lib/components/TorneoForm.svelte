@@ -89,7 +89,7 @@
 	</div>
 
 	{#if errorGlobal}
-		<div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+		<div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/40 dark:text-red-400">
 			{errorGlobal}
 		</div>
 	{/if}
@@ -102,7 +102,7 @@
 					onclick={handleTest}
 					disabled={guardando}
 					title="Rellenar con datos de prueba"
-					class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-400 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+					class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-400 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-800"
 				>
 					<i class="bi bi-magic"></i>
 					Test
@@ -115,7 +115,7 @@
 					type="button"
 					onclick={onCancel}
 					disabled={guardando}
-					class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+					class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
 				>
 					Cancelar
 				</button>

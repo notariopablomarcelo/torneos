@@ -18,7 +18,7 @@
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
 	<header class="mb-6 flex items-center justify-between">
-		<h1 class="text-2xl font-bold text-gray-900">Torneos</h1>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Torneos</h1>
 		<a
 			href="/torneos/nuevo"
 			title="Nuevo torneo"
@@ -30,15 +30,15 @@
 	</header>
 
 	{#if cargando}
-		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400">
+		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-500">
 			<i class="bi bi-arrow-clockwise animate-spin text-3xl"></i>
 			<p class="mt-2 text-sm">Cargando…</p>
 		</div>
 	{:else if torneos.length === 0}
 		<div
-			class="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500"
+			class="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
 		>
-			<i class="bi bi-trophy text-4xl text-gray-300"></i>
+			<i class="bi bi-trophy text-4xl text-gray-300 dark:text-gray-600"></i>
 			<p class="mt-3 font-medium">Todavía no hay torneos</p>
 			<p class="text-sm">Empezá creando el primero.</p>
 			<a
@@ -55,9 +55,9 @@
 				<li>
 					<a
 						href={`/torneos/${t.id}`}
-						class="block rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-brand-300 hover:shadow-md"
+						class="block rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-brand-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-700"
 					>
-						<h2 class="mb-2 font-semibold text-gray-900">{t.nombre}</h2>
+						<h2 class="mb-2 font-semibold text-gray-900 dark:text-gray-100">{t.nombre}</h2>
 						<RangoFechas inicio={t.fechaInicio} fin={t.fechaFin} />
 					</a>
 				</li>

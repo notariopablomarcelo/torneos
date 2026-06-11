@@ -161,17 +161,17 @@
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
 	{#if cargando}
-		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400">
+		<div class="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-500">
 			<i class="bi bi-arrow-clockwise animate-spin text-3xl"></i>
 		</div>
 	{:else if errorCarga}
-		<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+		<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/40 dark:text-red-400">
 			{errorCarga}
 		</div>
 	{:else if categoria}
 		<a
 			href={`/torneos/${tid}/categorias/${cid}`}
-			class="mb-3 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+			class="mb-3 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
 		>
 			<i class="bi bi-arrow-left"></i>
 			Volver
@@ -185,7 +185,7 @@
 		/>
 
 		<header class="mb-4 flex items-center justify-between">
-			<h1 class="text-xl font-bold text-gray-900">Inscripciones</h1>
+			<h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">Inscripciones</h1>
 			<button
 				type="button"
 				onclick={() => (sheetNueva = true)}
@@ -199,7 +199,7 @@
 
 		{#if jugadores.length < cantidad}
 			<div
-				class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+				class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
 			>
 				<i class="bi bi-info-circle"></i>
 				Faltan jugadores en la base. Cargá al menos {cantidad} desde
@@ -207,7 +207,7 @@
 			</div>
 		{:else if cantidadDisponiblesNueva < cantidad}
 			<div
-				class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+				class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
 			>
 				<i class="bi bi-info-circle"></i>
 				Todos los jugadores de la base ya están inscriptos en esta categoría.
@@ -216,16 +216,16 @@
 
 		{#if inscripciones.length === 0}
 			<div
-				class="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500"
+				class="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
 			>
-				<i class="bi bi-people text-4xl text-gray-300"></i>
+				<i class="bi bi-people text-4xl text-gray-300 dark:text-gray-600"></i>
 				<p class="mt-3 font-medium">Todavía no hay inscripciones</p>
 				<p class="text-sm">
 					Cargá la primera para empezar a armar las zonas después.
 				</p>
 			</div>
 		{:else}
-			<p class="mb-2 text-xs text-gray-400">
+			<p class="mb-2 text-xs text-gray-400 dark:text-gray-500">
 				{inscripciones.length}
 				{inscripciones.length === 1
 					? sustantivoInscripcion(cantidad)
@@ -238,21 +238,21 @@
 							type="button"
 							onclick={() => (editandoId = i.id)}
 							aria-label="Editar {nombreInscripcion(i, jugadoresPorId)}"
-							class="flex w-full items-start gap-3 rounded-[10px] border border-gray-200 bg-white p-3 text-left hover:border-gray-300 hover:bg-gray-50"
+							class="flex w-full items-start gap-3 rounded-[10px] border border-gray-200 bg-white p-3 text-left hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 dark:hover:bg-gray-800"
 						>
 							<span
 								title={i.ranking === null ? 'Sin ranking' : `Ranking ${i.ranking}`}
 								class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold {i.ranking ===
 								null
-									? 'bg-gray-50 text-gray-400'
-									: 'bg-gray-100 text-gray-700'}"
+									? 'bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+									: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}"
 							>
 								{i.ranking ?? '–'}
 							</span>
 							<div class="min-w-0 flex-1">
 								<InscripcionNombres nombres={nombresJugadores(i, jugadoresPorId)} />
 							</div>
-							<i class="bi bi-chevron-right shrink-0 text-base text-gray-300"></i>
+							<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>
 						</button>
 					</li>
 				{/each}

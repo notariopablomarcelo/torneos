@@ -13,11 +13,11 @@
 	let { inicio, fin }: Props = $props();
 </script>
 
-<span class="inline-flex items-center gap-1.5 text-sm text-gray-600">
-	<i class="bi bi-calendar3 text-xs text-gray-400"></i>
+<span class="inline-flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+	<i class="bi bi-calendar3 text-xs text-gray-400 dark:text-gray-500"></i>
 	<span class="tabular-nums">{formatearFecha(inicio)}</span>
 	{#if inicio !== fin}
-		<i class="bi bi-arrow-right text-xs text-gray-400"></i>
+		<i class="bi bi-arrow-right text-xs text-gray-400 dark:text-gray-500"></i>
 		<span class="tabular-nums">{formatearFecha(fin)}</span>
 	{/if}
 </span>

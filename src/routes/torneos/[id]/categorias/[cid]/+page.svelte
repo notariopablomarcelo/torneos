@@ -122,7 +122,7 @@
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
 	<a
 		href={`/torneos/${tid}`}
-		class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+		class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
 	>
 		<i class="bi bi-arrow-left"></i>
 		{torneo?.nombre ?? 'Torneo'}
@@ -130,40 +130,40 @@
 
 	{#if cargandoCategoria}
 		<div
-			class="mt-6 rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400"
+			class="mt-6 rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-500"
 		>
 			<i class="bi bi-arrow-clockwise animate-spin text-3xl"></i>
 		</div>
 	{:else if errorCarga}
-		<div class="mt-6 rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+		<div class="mt-6 rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/40 dark:text-red-400">
 			{errorCarga}
 		</div>
 	{:else if categoria}
 		<!-- Header de la categoria. -->
-		<section class="mt-3 mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
+		<section class="mt-3 mb-6 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
 			<div class="p-5">
-				<h1 class="text-xl font-bold text-gray-900">{nombreCategoria(categoria)}</h1>
+				<h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">{nombreCategoria(categoria)}</h1>
 				<dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-					<dt class="text-gray-500">Por equipo</dt>
-					<dd class="font-medium text-gray-900">
+					<dt class="text-gray-500 dark:text-gray-400">Por equipo</dt>
+					<dd class="font-medium text-gray-900 dark:text-gray-100">
 						{cantidad}
 						{cantidad === 1 ? 'jugador' : 'jugadores'}
 					</dd>
-					<dt class="text-gray-500">Cupos</dt>
-					<dd class="font-medium text-gray-900">
+					<dt class="text-gray-500 dark:text-gray-400">Cupos</dt>
+					<dd class="font-medium text-gray-900 dark:text-gray-100">
 						{categoria.cupos === null ? 'Sin tope' : categoria.cupos}
 					</dd>
 				</dl>
 			</div>
 			<footer
-				class="flex items-center justify-end gap-1 border-t border-gray-100 px-3 py-2"
+				class="flex items-center justify-end gap-1 border-t border-gray-100 px-3 py-2 dark:border-gray-800"
 			>
 				<button
 					type="button"
 					onclick={() => (sheetEditarCat = true)}
 					title="Editar categoría"
 					aria-label="Editar categoría"
-					class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+					class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
 				>
 					<i class="bi bi-pencil"></i>
 				</button>
@@ -172,7 +172,7 @@
 					onclick={handleEliminarCategoria}
 					title="Eliminar categoría"
 					aria-label="Eliminar categoría"
-					class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-700"
+					class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-gray-400 dark:hover:bg-red-900/40 dark:hover:text-red-400"
 				>
 					<i class="bi bi-trash"></i>
 				</button>
@@ -184,35 +184,35 @@
 			<li>
 				<a
 					href={`/torneos/${tid}/categorias/${cid}/inscripciones`}
-					class="flex w-full items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-gray-300 hover:shadow-md"
+					class="flex w-full items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
 				>
 					<span
-						class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700"
+						class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
 					>
 						<i class="bi bi-people text-xl"></i>
 					</span>
 					<div class="min-w-0 flex-1">
-						<p class="text-base font-semibold text-gray-900">Inscripciones</p>
-						<p class="text-xs text-gray-500">{subInscripciones}</p>
+						<p class="text-base font-semibold text-gray-900 dark:text-gray-100">Inscripciones</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400">{subInscripciones}</p>
 					</div>
-					<i class="bi bi-chevron-right shrink-0 text-base text-gray-300"></i>
+					<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>
 				</a>
 			</li>
 			<li>
 				<a
 					href={`/torneos/${tid}/categorias/${cid}/zonas`}
-					class="flex w-full items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-gray-300 hover:shadow-md"
+					class="flex w-full items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
 				>
 					<span
-						class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700"
+						class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
 					>
 						<i class="bi bi-diagram-3 text-xl"></i>
 					</span>
 					<div class="min-w-0 flex-1">
-						<p class="text-base font-semibold text-gray-900">Zonas</p>
-						<p class="text-xs text-gray-500">{subZonas}</p>
+						<p class="text-base font-semibold text-gray-900 dark:text-gray-100">Zonas</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400">{subZonas}</p>
 					</div>
-					<i class="bi bi-chevron-right shrink-0 text-base text-gray-300"></i>
+					<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>
 				</a>
 			</li>
 		</ul>

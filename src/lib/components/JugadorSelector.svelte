@@ -33,28 +33,28 @@
 		{id}
 		type="button"
 		onclick={() => (picker = true)}
-		class="block w-full rounded-lg border bg-white px-3 pt-5 pr-9 pb-1.5 text-left text-sm focus:outline-none focus:ring-2 {error
+		class="block w-full rounded-lg border bg-white px-3 pt-5 pr-9 pb-1.5 text-left text-sm focus:outline-none focus:ring-2 dark:bg-gray-900 {error
 			? 'border-red-400 focus:border-red-500 focus:ring-red-200'
-			: 'border-gray-300 focus:border-brand-500 focus:ring-brand-200'}"
+			: 'border-gray-300 focus:border-brand-500 focus:ring-brand-200 dark:border-gray-700'}"
 	>
 		<span
 			class={seleccionado
-				? 'text-gray-900'
+				? 'text-gray-900 dark:text-gray-100'
 				: huerfano
 					? 'text-red-600'
-					: 'text-gray-400'}
+					: 'text-gray-400 dark:text-gray-500'}
 		>
 			{seleccionado?.nombreCompleto ?? (huerfano ? 'Jugador no encontrado' : 'Tocá para elegir')}
 		</span>
 		<i
-			class="bi bi-chevron-right absolute top-1/2 right-3 -translate-y-1/2 text-gray-400"
+			class="bi bi-chevron-right absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 dark:text-gray-500"
 		></i>
 	</button>
 	<label
 		for={id}
 		class="pointer-events-none absolute start-3 top-1 z-10 text-xs {error
 			? 'text-red-600'
-			: 'text-gray-500'}"
+			: 'text-gray-500 dark:text-gray-400'}"
 	>
 		{label}
 	</label>
