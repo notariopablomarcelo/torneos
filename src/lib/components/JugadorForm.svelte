@@ -10,9 +10,31 @@
 		onSubmit: (data: JugadorInput) => Promise<void>;
 		onCancel?: () => void;
 		onTest?: () => JugadorInput;
+		// Opcional: si se pasa, aparece un boton "Eliminar" a la izquierda del
+		// footer. El handler hace la confirmacion y la baja.
+		onEliminar?: () => Promise<void>;
 	};
 
-	let { initial, submitLabel = 'Guardar', onSubmit, onCancel, onTest }: Props = $props();
+	let {
+		initial,
+		submitLabel = 'Guardar',
+		onSubmit,
+		onCancel,
+		onTest,
+		onEliminar
+	}: Props = $props();
+
+	let borrando = $state(false);
+
+	async function handleEliminarClick() {
+		if (!onEliminar) return;
+		borrando = true;
+		try {
+			await onEliminar();
+		} finally {
+			borrando = false;
+		}
+	}
 
 	// Lista de paises conocidos. Argentina primero porque es el principal del
 	// dominio. "Otros" sirve de escape para codigos no listados; el input
@@ -160,36 +182,53 @@
 		</div>
 	{/if}
 
-	<div class="flex items-center justify-between gap-3 pt-2">
-		<div>
+	<!-- Footer: en mobile 2 filas full-width (acciones secundarias arriba,
+	     Cancelar/Guardar abajo). En desktop una sola fila. -->
+	<div class="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+		<div class="flex items-center gap-2">
+			{#if onEliminar}
+				<button
+					type="button"
+					onclick={handleEliminarClick}
+					disabled={guardando || borrando}
+					class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 sm:flex-none"
+				>
+					{#if borrando}
+						<i class="bi bi-arrow-clockwise animate-spin"></i>
+					{:else}
+						<i class="bi bi-trash"></i>
+					{/if}
+					Eliminar
+				</button>
+			{/if}
 			{#if onTest}
 				<button
 					type="button"
 					onclick={handleTest}
-					disabled={guardando}
+					disabled={guardando || borrando}
 					title="Rellenar con datos de prueba"
-					class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-400 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+					class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-400 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 sm:flex-none"
 				>
 					<i class="bi bi-magic"></i>
 					Test
 				</button>
 			{/if}
 		</div>
-		<div class="flex items-center gap-3">
+		<div class="flex items-center gap-2 sm:gap-3">
 			{#if onCancel}
 				<button
 					type="button"
 					onclick={onCancel}
-					disabled={guardando}
-					class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+					disabled={guardando || borrando}
+					class="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:flex-none"
 				>
 					Cancelar
 				</button>
 			{/if}
 			<button
 				type="submit"
-				disabled={guardando}
-				class="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+				disabled={guardando || borrando}
+				class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50 sm:flex-none"
 			>
 				{#if guardando}
 					<i class="bi bi-arrow-clockwise animate-spin"></i>

@@ -18,10 +18,7 @@
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
 	<header class="mb-6 flex items-center justify-between">
-		<div>
-			<h1 class="text-2xl font-bold text-gray-900">Torneos</h1>
-			<p class="text-sm text-gray-500">Listado de todos los torneos cargados.</p>
-		</div>
+		<h1 class="text-2xl font-bold text-gray-900">Torneos</h1>
 		<a
 			href="/torneos/nuevo"
 			title="Nuevo torneo"

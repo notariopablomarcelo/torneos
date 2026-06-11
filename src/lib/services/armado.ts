@@ -5,6 +5,7 @@ import {
 	onSnapshot,
 	orderBy,
 	query,
+	updateDoc,
 	where,
 	writeBatch
 } from 'firebase/firestore';
@@ -25,6 +26,7 @@ import type {
 	ArmadoConfig,
 	ModalidadZona4,
 	Partido,
+	ResultadoPartido,
 	TamanoZona,
 	Zona
 } from '$lib/types/armado';
@@ -382,6 +384,36 @@ export async function cambiarModalidadZona(
 		partidosEliminados: recon.aEliminar.length,
 		partidosPreservados: recon.aPreservar.length
 	};
+}
+
+// Carga el resultado de un partido. Marca el partido como Jugado y actualiza
+// los campos resultado/estado. No hace validaciones de coherencia (sets vs
+// ganadorEs); el form se encarga de eso. La resolucion de refs simbolicas
+// (partidos siguientes en DO) es derivada en el cliente: el helper
+// resolverParejaRef hace la cuenta cuando se renderiza.
+export async function cargarResultadoPartido(
+	torneoId: string,
+	categoriaId: string,
+	partidoId: string,
+	resultado: ResultadoPartido
+): Promise<void> {
+	await updateDoc(partidoDoc(torneoId, categoriaId, partidoId), {
+		resultado,
+		estado: 'Jugado'
+	});
+}
+
+// Borra el resultado de un partido y lo vuelve a Pendiente. Util para
+// corregir errores de carga.
+export async function borrarResultadoPartido(
+	torneoId: string,
+	categoriaId: string,
+	partidoId: string
+): Promise<void> {
+	await updateDoc(partidoDoc(torneoId, categoriaId, partidoId), {
+		resultado: null,
+		estado: 'Pendiente'
+	});
 }
 
 // Suscripcion al listado de zonas de una categoria, ordenadas por letra.

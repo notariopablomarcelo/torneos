@@ -525,7 +525,7 @@ describe('reconciliarPartidos', () => {
 				numeroEnZona: 1,
 				pareja1Ref: { tipo: 'Inscripcion', inscripcionId: 'A' },
 				pareja2Ref: { tipo: 'Inscripcion', inscripcionId: 'B' },
-				resultado: { sets: [{ p1: 6, p2: 2 }], ganadorEs: 1 },
+				resultado: { sets: [{ p1: 6, p2: 2 }], ganadorEs: 1, motivo: 'normal' },
 				estado: 'Jugado'
 			}),
 			partido({

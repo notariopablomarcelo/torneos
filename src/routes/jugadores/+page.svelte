@@ -71,10 +71,14 @@
 		editandoId = null;
 	}
 
-	async function handleEliminar(j: Jugador) {
-		const ok = confirm(`¿Eliminar al jugador "${j.nombreCompleto}"?`);
+	async function handleEliminar() {
+		if (!editandoId || !jugadorEditando) return;
+		const ok = confirm(
+			`¿Eliminar al jugador "${jugadorEditando.nombreCompleto}"?`
+		);
 		if (!ok) return;
-		await eliminarJugador(j.id);
+		await eliminarJugador(editandoId);
+		editandoId = null;
 	}
 
 	const initialNuevo: JugadorInput = {
@@ -87,10 +91,7 @@
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
 	<header class="mb-6 flex items-center justify-between">
-		<div>
-			<h1 class="text-2xl font-bold text-gray-900">Jugadores</h1>
-			<p class="text-sm text-gray-500">Base global de jugadores reutilizable entre torneos.</p>
-		</div>
+		<h1 class="text-2xl font-bold text-gray-900">Jugadores</h1>
 		<button
 			type="button"
 			onclick={() => (sheetNuevo = true)}
@@ -143,33 +144,35 @@
 			Sin resultados para "{busqueda}".
 		</div>
 	{:else}
-		<ul class="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
+		<!-- Contador chico arriba de la lista, estilo PadelRoom. -->
+		<p class="mb-2 text-xs text-gray-400">
+			{jugadoresFiltrados.length}
+			{jugadoresFiltrados.length === 1 ? 'jugador' : 'jugadores'}
+		</p>
+		<!-- Card por jugador. Todo el card es clickeable → abre el modal de
+		     edicion (no hay vista de detalle por ahora, asi que la accion
+		     primaria es editar). Eliminar vive adentro del modal. -->
+		<ul class="space-y-1.5">
 			{#each jugadoresFiltrados as j (j.id)}
-				<li class="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-					<div class="min-w-0">
-						<p class="font-medium text-gray-900">{j.nombreCompleto}</p>
-						<p class="text-xs text-gray-500">
-							{j.telefono ?? 'Sin teléfono'}
-						</p>
-					</div>
-					<div class="flex shrink-0 items-center gap-1">
-						<button
-							type="button"
-							onclick={() => (editandoId = j.id)}
-							class="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-							aria-label="Editar {j.nombreCompleto}"
-						>
-							<i class="bi bi-pencil"></i>
-						</button>
-						<button
-							type="button"
-							onclick={() => handleEliminar(j)}
-							class="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700"
-							aria-label="Eliminar {j.nombreCompleto}"
-						>
-							<i class="bi bi-trash"></i>
-						</button>
-					</div>
+				<li>
+					<button
+						type="button"
+						onclick={() => (editandoId = j.id)}
+						aria-label="Editar {j.nombreCompleto}"
+						class="flex w-full items-center gap-2.5 rounded-[10px] border border-gray-200 bg-white px-3.5 py-3 text-left hover:border-gray-300 hover:bg-gray-50"
+					>
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-[15px] font-semibold text-gray-900">
+								{j.nombreCompleto}
+							</p>
+							{#if j.telefono}
+								<p class="truncate text-xs text-gray-500">{j.telefono}</p>
+							{:else}
+								<p class="truncate text-xs text-amber-700 italic">Sin teléfono</p>
+							{/if}
+						</div>
+						<i class="bi bi-chevron-right shrink-0 text-base text-gray-300"></i>
+					</button>
 				</li>
 			{/each}
 		</ul>
@@ -198,9 +201,10 @@
 					nombreCompleto: jugadorEditando.nombreCompleto,
 					telefono: jugadorEditando.telefono
 				}}
-				submitLabel="Guardar cambios"
+				submitLabel="Guardar"
 				onSubmit={handleActualizar}
 				onCancel={() => (editandoId = null)}
+				onEliminar={handleEliminar}
 			/>
 		{/key}
 	{/if}

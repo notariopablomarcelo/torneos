@@ -59,10 +59,29 @@ export type FasePartido = 'Zona' | 'Octavos' | 'Cuartos' | 'Semis' | 'Final';
 
 export type EstadoPartido = 'Pendiente' | 'Programado' | 'Jugado';
 
-export type ResultadoPartido = {
-	sets: { p1: number; p2: number }[];
-	ganadorEs: 1 | 2;
-};
+// Motivo del resultado:
+// - normal: se jugo el partido completo.
+// - WO (walkover): una pareja no se presento; la otra gana sin jugar.
+// - abandono: la pareja perdedora abandono durante el partido.
+export const motivoResultadoSchema = z.enum(['normal', 'WO', 'abandono']);
+export type MotivoResultado = z.infer<typeof motivoResultadoSchema>;
+
+// Set con games ganados por cada pareja. Tiebreak opcional cuando hubo
+// (set 6-6 se resuelve con tiebreak; el ganador del tie se anota 7 games).
+export const setResultadoSchema = z.object({
+	p1: z.number().int().min(0).max(99),
+	p2: z.number().int().min(0).max(99),
+	tiebreakP1: z.number().int().min(0).optional(),
+	tiebreakP2: z.number().int().min(0).optional()
+});
+export type SetResultado = z.infer<typeof setResultadoSchema>;
+
+export const resultadoPartidoSchema = z.object({
+	sets: z.array(setResultadoSchema),
+	ganadorEs: z.union([z.literal(1), z.literal(2)]),
+	motivo: motivoResultadoSchema
+});
+export type ResultadoPartido = z.infer<typeof resultadoPartidoSchema>;
 
 export type Partido = {
 	id: string;
