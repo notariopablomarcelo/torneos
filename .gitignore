@@ -32,3 +32,4 @@ functions/lib/
 # IDE
 .idea/
 *.swp
+data/

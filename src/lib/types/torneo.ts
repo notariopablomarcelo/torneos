@@ -3,12 +3,16 @@ import type {
 	ArmadoConfig,
 	BracketConfig,
 	Clasifican,
+	GrupoZonas,
 	ModalidadZona4,
+	ParejaRef,
 	TamanoZona
 } from './armado';
 import {
 	clasificanSchema,
+	grupoZonasSchema,
 	modalidadZona4Schema,
+	parejaRefSchema,
 	tamanoZonaSchema
 } from './armado';
 
@@ -82,7 +86,14 @@ export const categoriaInputSchema = z.object({
 	// mejor dato disponible.
 	tamanoPreferido: tamanoZonaSchema.nullable().optional(),
 	modalidadZona4: modalidadZona4Schema.nullable().optional(),
-	clasificanPorZona: clasificanSchema.nullable().optional()
+	clasificanPorZona: clasificanSchema.nullable().optional(),
+	// Estructura personalizada (opcional). Si esta definida, manda sobre
+	// los campos simples de arriba al armar y al estimar. Permite mezclar
+	// zonas de distintos tamanos / modalidades / clasifican en una misma
+	// categoria (ej. 2 zonas de 4 + 5 zonas de 3). Los campos simples
+	// quedan como fallback si despues se vuelve al modo simple sin
+	// perder lo configurado.
+	estructuraPersonalizada: z.array(grupoZonasSchema).nullable().optional()
 });
 
 export type CategoriaInput = z.infer<typeof categoriaInputSchema>;
@@ -97,6 +108,12 @@ export type Categoria = CategoriaInput & {
 	armadoConfig?: ArmadoConfig | null;
 	// Idem para el bracket eliminatorio. null o undefined => no armado.
 	bracketConfig?: BracketConfig | null;
+	// Override manual de cruces del cuadro. Se persiste DESDE el preview o
+	// desde el editor del bracket armado. Cuando se arma (o re-arma) el
+	// bracket, este override se usa via armarBracketDesdeSlots. Se mantiene
+	// independiente de bracketConfig para que pueda configurarse antes de
+	// armar el bracket real (cuando las zonas aun no terminaron).
+	bracketSlotsOverride?: (ParejaRef | null)[] | null;
 };
 
 // Nombre derivado a partir de nivel + genero. Se usa en todas las vistas

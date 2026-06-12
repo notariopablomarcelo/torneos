@@ -27,7 +27,10 @@
 	} from '$lib/types/inscripcion';
 	import type { ArmadoConfig, ModalidadZona4, Zona } from '$lib/types/armado';
 	import type { Jugador } from '$lib/types/jugador';
-	import { generarZonasSembradas } from '$lib/preview/estructura';
+	import {
+		generarZonasSembradas,
+		generarZonasSembradasCustom
+	} from '$lib/preview/estructura';
 
 	const tid = $derived(page.params.id as string);
 	const cid = $derived(page.params.cid as string);
@@ -108,7 +111,20 @@
 	// antes de cargar inscripciones reales.
 	const previewZonas = $derived.by(() => {
 		if (estaArmada) return null;
-		if (!categoria?.cupos) return null;
+		if (!categoria) return null;
+		// Modo custom: si la categoria tiene estructura personalizada, la
+		// usamos directamente (no depende de cupos numericos).
+		if (
+			categoria.estructuraPersonalizada &&
+			categoria.estructuraPersonalizada.length > 0
+		) {
+			const zonas = generarZonasSembradasCustom(
+				categoria.estructuraPersonalizada
+			);
+			return zonas.length === 0 ? null : zonas;
+		}
+		// Modo simple: cupos + tamano preferido.
+		if (!categoria.cupos) return null;
 		if (!categoria.tamanoPreferido) return null;
 		const modalidad =
 			categoria.tamanoPreferido === 4
@@ -158,7 +174,14 @@
 	}
 
 	async function handleArmar(config: Omit<ArmadoConfig, 'armadoEn'>) {
-		await armarZonasCategoria(tid, cid, inscripciones, config);
+		// Si la categoria tiene estructura personalizada cargada, la
+		// inyectamos en el config del armado para que el servicio genere
+		// las zonas con los tamanos / modalidades / clasifican exactos
+		// que pidio el organizador.
+		const configFinal = categoria?.estructuraPersonalizada
+			? { ...config, grupos: categoria.estructuraPersonalizada }
+			: config;
+		await armarZonasCategoria(tid, cid, inscripciones, configFinal);
 		await refrescarCategoria();
 		sheetArmado = false;
 	}

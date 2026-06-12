@@ -1,4 +1,5 @@
 import {
+	db,
 	doc,
 	getDoc,
 	getDocs,
@@ -8,8 +9,7 @@ import {
 	updateDoc,
 	where,
 	writeBatch
-} from 'firebase/firestore';
-import { db } from '$lib/firebase';
+} from '$lib/db';
 import {
 	categoriaDoc,
 	partidoDoc,
@@ -71,12 +71,42 @@ export async function armarZonasCategoria(
 	const ordenadas = ordenarInscripcionesParaArmado(inscripciones);
 	const ids = ordenadas.map((i) => i.id);
 
-	// Llamamos armarZonas primero: si la combinacion (N, preferencia) es
-	// invalida, lanza aca antes de tocar Firestore.
+	// Si vino estructura personalizada en `config.grupos`, la usamos para
+	// derivar la lista exacta de tamanos por zona. Sino, modo simple:
+	// el algoritmo deriva la distribucion desde `tamanoPreferido`.
+	//
+	// `modalidadPorZonaIdx` y `clasificanPorZonaIdx` mapean cada zona
+	// armada (por indice en el orden A, B, C...) a su modalidad/clasifican
+	// segun el grupo al que pertenece. Si no hay grupos, todos quedan con
+	// los defaults del `config`.
+	const usaGrupos = config.grupos && config.grupos.length > 0;
+	const tamanosPorZona: TamanoZona[] = [];
+	const modalidadPorZonaIdx: (ModalidadZona4 | 'todosContraTodos')[] = [];
+	const clasificanPorZonaIdx: (1 | 2 | 3)[] = [];
+
+	if (usaGrupos) {
+		for (const g of config.grupos!) {
+			for (let i = 0; i < g.cantidad; i += 1) {
+				tamanosPorZona.push(g.tamano);
+				modalidadPorZonaIdx.push(
+					g.tamano === 4
+						? (g.modalidad ?? 'todosContraTodos')
+						: 'todosContraTodos'
+				);
+				clasificanPorZonaIdx.push(
+					Math.min(g.clasifican, g.tamano - 1) as 1 | 2 | 3
+				);
+			}
+		}
+	}
+
+	// armarZonasAlgoritmo acepta TamanoZona o TamanoZona[]. Si pasamos la
+	// lista usa los grupos custom; sino deriva la distribucion automatica
+	// con tamanoPreferido (modo simple).
 	const zonasArmadas = armarZonasAlgoritmo(
 		ids,
 		config.algoritmo,
-		config.tamanoPreferido
+		usaGrupos ? tamanosPorZona : config.tamanoPreferido
 	);
 
 	// NOTA sobre race condition: si esta funcion se llama dos veces en
@@ -100,20 +130,25 @@ export async function armarZonasCategoria(
 	const ahora = new Date().toISOString();
 
 	// Crear lo nuevo.
-	for (const z of zonasArmadas) {
-		const modalidad: ModalidadZona4 | 'todosContraTodos' =
-			z.tamano === 4 ? config.modalidadZona4 : 'todosContraTodos';
-		// Pasamos la modalidad ya resuelta (no la config cruda) para que el
-		// algoritmo no tenga que filtrar implicitamente "zona de 3 ignora DO".
+	for (let zIdx = 0; zIdx < zonasArmadas.length; zIdx += 1) {
+		const z = zonasArmadas[zIdx]!;
+		// Si vino estructura custom, modalidad y clasifican vienen del
+		// grupo al que pertenece esta zona (mapa por indice). Si es modo
+		// simple, los toma del config plano.
+		const modalidad: ModalidadZona4 | 'todosContraTodos' = usaGrupos
+			? modalidadPorZonaIdx[zIdx]!
+			: z.tamano === 4
+				? config.modalidadZona4
+				: 'todosContraTodos';
 		const partidosPlantilla = generarPartidosDeZona(
 			z,
 			modalidad === 'todosContraTodos' ? 'todosContraTodos' : 'dobleOportunidad'
 		);
 
-		// Cap clasifican por tamano: en zona de 3, max 2; en zona de 4, max 3.
-		// Si la config macro pidio 3 pero la zona es de 3, capeamos a 2.
 		const clasificanMax = z.tamano - 1;
-		const clasificanZona = Math.min(config.clasificanPorZona, clasificanMax) as 1 | 2 | 3;
+		const clasificanZona = usaGrupos
+			? clasificanPorZonaIdx[zIdx]!
+			: (Math.min(config.clasificanPorZona, clasificanMax) as 1 | 2 | 3);
 
 		const zonaRef = doc(zonasCol(torneoId, categoriaId));
 		batch.set(zonaRef, {
@@ -142,16 +177,13 @@ export async function armarZonasCategoria(
 		}
 	}
 
-	// Auto-armar el bracket eliminatorio en el mismo batch. La estructura es
-	// totalmente determinista a partir de las zonas + clasifican, asi que no
-	// tiene sentido pedirle al admin un paso extra. Si despues quiere otro
-	// sembrado, puede re-armar desde la pantalla del bracket.
-	//
-	// Pasamos las zonas que acabamos de crear (en memoria) al algoritmo de
-	// bracket. Cada zona aporta su letra + clasifican (ya capeado por tamano).
-	const zonasParaBracket = zonasArmadas.map((z) => ({
+	// Auto-armar el bracket en el mismo batch. Cada zona aporta su letra
+	// + clasifican (segun el grupo al que pertenece, o el default simple).
+	const zonasParaBracket = zonasArmadas.map((z, zIdx) => ({
 		letra: z.letra,
-		clasifican: Math.min(config.clasificanPorZona, z.tamano - 1) as 1 | 2 | 3
+		clasifican: usaGrupos
+			? clasificanPorZonaIdx[zIdx]!
+			: (Math.min(config.clasificanPorZona, z.tamano - 1) as 1 | 2 | 3)
 	}));
 	const bracketArmado = armarBracket(zonasParaBracket);
 	const bracketId = doc(partidosCol(torneoId, categoriaId)).id;

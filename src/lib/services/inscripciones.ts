@@ -1,4 +1,4 @@
-import { addDoc, deleteDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { addDoc, deleteDoc, onSnapshot, updateDoc } from '$lib/db';
 import { inscripcionDoc, inscripcionesCol } from './firestore';
 import type { Inscripcion, InscripcionInput } from '$lib/types/inscripcion';
 

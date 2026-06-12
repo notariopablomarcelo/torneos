@@ -141,94 +141,160 @@ export function armarBracket(
 		throw new Error('Se necesitan al menos 2 clasificados para armar el bracket.');
 	}
 
-	// Cuadro = siguiente potencia de 2 >= N. byes = cuadro - N.
+	// Cuadro = siguiente potencia de 2 >= N. Sembrado snake sobre `cuadro`
+	// slots. Los seeds 1..N son reales (PosicionZona); seeds N+1..cuadro son
+	// "byes" (slot vacio).
 	const cuadro = siguientePotenciaDe2(N);
-	const byes = cuadro - N;
-
-	// Sembrado snake sobre `cuadro` slots. Los seeds 1..N son reales, los
-	// seeds N+1..cuadro son "byes" (imaginarios).
 	const ordenSnake = sembrarSnake(cuadro);
+	const slotRefs: (ParejaRef | null)[] = ordenSnake.map((seedNum) => {
+		if (seedNum > N) return null;
+		const s = seeds[seedNum - 1]!;
+		return { tipo: 'PosicionZona', letraZona: s.letraZona, posicion: s.posicion };
+	});
 
+	return construirPartidosDesdeSlots(slotRefs);
+}
+
+// Variante de `armarBracket` que recibe directamente el mapping slot→ref
+// (en lugar de derivarlo de zonas via snake). Util para "editor de cruces":
+// el organizador asigna manualmente que ref va a cada slot del cuadro
+// (incluyendo slots vacios = byes a su discrecion), y este helper construye
+// el bracket completo desde esa asignacion.
+//
+// `slotRefs.length` debe ser potencia de 2 (= cantidadParejasCuadro). Las
+// posiciones impares y pares del array se aparean para R1; slots vacios
+// generan bye; ambos vacios en un par propaga vacio a R2+ (la cancha queda
+// sin partido).
+export function armarBracketDesdeSlots(
+	slotRefs: (ParejaRef | null)[]
+): BracketArmado {
+	if (!esPotenciaDe2(slotRefs.length)) {
+		throw new Error('La cantidad de slots debe ser potencia de 2.');
+	}
+	const cantParejas = slotRefs.filter((r) => r !== null).length;
+	if (cantParejas < 2) {
+		throw new Error('Se necesitan al menos 2 parejas en el cuadro.');
+	}
+	return construirPartidosDesdeSlots(slotRefs);
+}
+
+// Helper interno: dado un array de N=2^k slots con refs (o null para bye),
+// construye todos los partidos del bracket en orden temporal (R1, R2, ...).
+//
+// Por cada par consecutivo de slots:
+//   - ambos refs no-null → partido en R1 (ambos refs como pareja1/pareja2);
+//     el slot R2 que sigue es `GanadorPartido` del nuevo partido.
+//   - solo uno no-null → no hay partido R1; el slot R2 hereda esa ref tal cual
+//     (bye = la pareja sube directo).
+//   - ambos null → no hay partido R1 y el slot R2 queda null (se propaga).
+//
+// Cada ronda subsecuente repite el mismo emparejamiento sobre las refs
+// salientes hasta llegar a 1 sola (la Final).
+function construirPartidosDesdeSlots(
+	slotRefs: (ParejaRef | null)[]
+): BracketArmado {
+	const cuadro = slotRefs.length;
 	const partidos: PartidoBracketPlantilla[] = [];
 	let numeroGlobal = 0;
+	let entrantes: (ParejaRef | null)[] = slotRefs;
+	let nroRonda = 1;
 
-	// Cada slot del cuadro produce una ParejaRef que va a la siguiente ronda.
-	// Si el slot esta emparejado con un bye, la ref es la PosicionZona directa.
-	// Si juega un partido real, es GanadorPartido.
-	const refsSegundaRonda: ParejaRef[] = [];
-
-	for (let i = 0; i < cuadro; i += 2) {
-		const seedA = ordenSnake[i];
-		const seedB = ordenSnake[i + 1];
-		if (seedA === undefined || seedB === undefined) continue;
-		const sA = seedA <= N ? seeds[seedA - 1] : null;
-		const sB = seedB <= N ? seeds[seedB - 1] : null;
-
-		if (sA && sB) {
-			// Partido real.
-			numeroGlobal += 1;
-			partidos.push({
-				numeroEnZona: numeroGlobal,
-				ronda: 1,
-				posicionEnRonda: i / 2 + 1,
-				fase: faseDeRonda(cuadro),
-				pareja1Ref: { tipo: 'PosicionZona', letraZona: sA.letraZona, posicion: sA.posicion },
-				pareja2Ref: { tipo: 'PosicionZona', letraZona: sB.letraZona, posicion: sB.posicion }
-			});
-			refsSegundaRonda.push({
-				tipo: 'GanadorPartido',
-				numeroEnZona: numeroGlobal
-			});
-		} else if (sA) {
-			// Bye para sA → pasa directo a 2da ronda.
-			refsSegundaRonda.push({
-				tipo: 'PosicionZona',
-				letraZona: sA.letraZona,
-				posicion: sA.posicion
-			});
-		} else if (sB) {
-			refsSegundaRonda.push({
-				tipo: 'PosicionZona',
-				letraZona: sB.letraZona,
-				posicion: sB.posicion
-			});
-		}
-		// (Ambos null es imposible si N >= cuadro/2 + 1, lo cual se cumple
-		// porque cuadro es la siguiente potencia >= N, asi que cuadro <= 2N.)
-	}
-
-	// Rondas siguientes: cada ronda toma las refs entrantes de a pares y
-	// genera un partido por par.
-	let entrantes = refsSegundaRonda;
-	let nroRonda = byes > 0 ? 2 : 2; // siempre empezamos en 2 (1ra ronda ya hecha)
 	while (entrantes.length > 1) {
-		const saliente: ParejaRef[] = [];
 		const cantSlots = entrantes.length;
-		for (let i = 0; i < entrantes.length; i += 2) {
-			const a = entrantes[i];
-			const b = entrantes[i + 1];
-			if (!a || !b) continue;
-			numeroGlobal += 1;
-			partidos.push({
-				numeroEnZona: numeroGlobal,
-				ronda: nroRonda,
-				posicionEnRonda: i / 2 + 1,
-				fase: faseDeRonda(cantSlots),
-				pareja1Ref: a,
-				pareja2Ref: b
-			});
-			saliente.push({ tipo: 'GanadorPartido', numeroEnZona: numeroGlobal });
+		const saliente: (ParejaRef | null)[] = [];
+		for (let i = 0; i < cantSlots; i += 2) {
+			const a = entrantes[i] ?? null;
+			const b = entrantes[i + 1] ?? null;
+			if (a && b) {
+				numeroGlobal += 1;
+				partidos.push({
+					numeroEnZona: numeroGlobal,
+					ronda: nroRonda,
+					posicionEnRonda: i / 2 + 1,
+					fase: faseDeRonda(cantSlots),
+					pareja1Ref: a,
+					pareja2Ref: b
+				});
+				saliente.push({ tipo: 'GanadorPartido', numeroEnZona: numeroGlobal });
+			} else if (a) {
+				saliente.push(a);
+			} else if (b) {
+				saliente.push(b);
+			} else {
+				saliente.push(null);
+			}
 		}
 		entrantes = saliente;
 		nroRonda += 1;
 	}
 
+	const cantidadParejas = slotRefs.filter((r) => r !== null).length;
 	return {
-		cantidadParejas: N,
+		cantidadParejas,
 		cantidadParejasCuadro: cuadro,
-		cantidadByes: byes,
+		cantidadByes: cuadro - cantidadParejas,
 		partidos
 	};
+}
+
+// Inverso de `construirPartidosDesdeSlots`: dado un bracket ya armado
+// (lista de partidos), reconstruye el mapping de slots del cuadro → ref.
+// Util para el editor de cruces: arranca con el snake actual y permite
+// editar desde ahi (sin re-derivar desde cero).
+//
+// Algoritmo:
+//   - R1: cada partido en posicionEnRonda K → ocupa slots 2K-1 y 2K
+//     (sus pareja1Ref y pareja2Ref van directo a esos slots).
+//   - R2+: si una ref es PosicionZona, significa que el slot R1 que le
+//     toca estaba vacio (bye). Asignamos esa ref al "primer slot R1 del
+//     range" correspondiente.
+//
+// Range de un partido en ronda R, posicionEnRonda K:
+//   slots [(K-1)*2^R + 1, K*2^R]. pareja1Ref → primera mitad del range,
+//   pareja2Ref → segunda mitad. Para una PosicionZona en pareja1, asignamos
+//   al primer slot de la primera mitad; para pareja2, al primero de la
+//   segunda mitad.
+export function slotsDeBracket(
+	partidos: PartidoBracketPlantilla[]
+): (ParejaRef | null)[] {
+	if (partidos.length === 0) return [];
+	const rondas = new Map<number, PartidoBracketPlantilla[]>();
+	for (const p of partidos) {
+		const arr = rondas.get(p.ronda) ?? [];
+		arr.push(p);
+		rondas.set(p.ronda, arr);
+	}
+	const ordRondas = Array.from(rondas.keys()).sort((a, b) => a - b);
+	const cuadro = Math.pow(2, ordRondas.length);
+	const slotRefs: (ParejaRef | null)[] = new Array(cuadro).fill(null);
+
+	// R1 (si existe — puede no haber si el cuadro es 2 y solo hay Final).
+	const partidosR1 = rondas.get(1) ?? [];
+	for (const p of partidosR1) {
+		const slotA = (p.posicionEnRonda - 1) * 2;
+		slotRefs[slotA] = p.pareja1Ref;
+		slotRefs[slotA + 1] = p.pareja2Ref;
+	}
+
+	// R2+: rellenar slots vacios desde refs PosicionZona que aparecen como
+	// pareja1/pareja2 (esas son byes que no se vieron en R1).
+	for (const rondaNum of ordRondas) {
+		if (rondaNum === 1) continue;
+		const partidosR = rondas.get(rondaNum)!;
+		const rangeSize = Math.pow(2, rondaNum);
+		const mitad = rangeSize / 2;
+		for (const p of partidosR) {
+			const inicioRange = (p.posicionEnRonda - 1) * rangeSize;
+			if (p.pareja1Ref.tipo === 'PosicionZona') {
+				slotRefs[inicioRange] = p.pareja1Ref;
+			}
+			if (p.pareja2Ref.tipo === 'PosicionZona') {
+				slotRefs[inicioRange + mitad] = p.pareja2Ref;
+			}
+		}
+	}
+
+	return slotRefs;
 }
 
 export { sembrarSnake, esPotenciaDe2, siguientePotenciaDe2 };

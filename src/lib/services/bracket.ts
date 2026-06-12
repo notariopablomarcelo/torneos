@@ -1,15 +1,19 @@
 import {
+	db,
 	doc,
+	getDoc,
 	getDocs,
 	onSnapshot,
 	query,
 	updateDoc,
 	where,
 	writeBatch
-} from 'firebase/firestore';
-import { db } from '$lib/firebase';
+} from '$lib/db';
 import { categoriaDoc, partidoDoc, partidosCol } from './firestore';
-import { armarBracket as armarBracketAlgoritmo } from '$lib/bracket/algoritmo';
+import {
+	armarBracket as armarBracketAlgoritmo,
+	armarBracketDesdeSlots
+} from '$lib/bracket/algoritmo';
 import type {
 	BracketConfig,
 	ParejaRef,
@@ -97,15 +101,31 @@ export function resolverParejaRefBracket(
 export async function armarBracketCategoria(
 	torneoId: string,
 	categoriaId: string,
-	zonas: Zona[]
+	zonas: Zona[],
+	slotsOverride?: (ParejaRef | null)[] | null
 ): Promise<void> {
 	if (zonas.length === 0) {
 		throw new Error('No hay zonas para clasificar al bracket.');
 	}
 	const zonasOrdenadas = [...zonas].sort((a, b) => a.letra.localeCompare(b.letra));
-	const armado = armarBracketAlgoritmo(
-		zonasOrdenadas.map((z) => ({ letra: z.letra, clasifican: z.clasifican }))
-	);
+
+	// Si no se paso override explicito, leer el persistido en la categoria
+	// (puede haberse guardado desde el preview antes de armar el bracket).
+	let overrideEfectivo = slotsOverride;
+	if (overrideEfectivo === undefined) {
+		const catSnap = await getDoc(categoriaDoc(torneoId, categoriaId));
+		const cat = catSnap.data() as { bracketSlotsOverride?: (ParejaRef | null)[] | null } | undefined;
+		overrideEfectivo = cat?.bracketSlotsOverride ?? null;
+	}
+
+	// Si hay override valido (length potencia de 2, al menos 2 refs no-null),
+	// usar `armarBracketDesdeSlots` (el organizador edito cruces). Sino,
+	// sembrado snake default.
+	const armado = overrideEfectivo && overrideEfectivo.length > 0
+		? armarBracketDesdeSlots(overrideEfectivo)
+		: armarBracketAlgoritmo(
+				zonasOrdenadas.map((z) => ({ letra: z.letra, clasifican: z.clasifican }))
+			);
 
 	const partidosViejos = await getDocs(
 		query(partidosCol(torneoId, categoriaId), where('zonaId', '==', null))
@@ -141,11 +161,31 @@ export async function armarBracketCategoria(
 
 	const config: BracketConfig = {
 		cantidadParejas: armado.cantidadParejas,
-		armadoEn: now
+		armadoEn: now,
+		slotsOverride: overrideEfectivo ?? null
 	};
-	batch.update(categoriaDoc(torneoId, categoriaId), { bracketConfig: config });
+	// Mantenemos sincronizado el override en la categoria (lo que se usara
+	// al re-armar) y el snapshot dentro del bracketConfig (lo que se uso
+	// efectivamente esta vez).
+	batch.update(categoriaDoc(torneoId, categoriaId), {
+		bracketConfig: config,
+		bracketSlotsOverride: overrideEfectivo ?? null
+	});
 
 	await batch.commit();
+}
+
+// Guarda solo el override de cruces en la categoria — sin armar el bracket.
+// Util cuando el organizador edita cruces en el preview (antes de que las
+// zonas terminen). Al armar el bracket mas tarde, se lee desde aca.
+export async function guardarOverrideBracket(
+	torneoId: string,
+	categoriaId: string,
+	slotsOverride: (ParejaRef | null)[] | null
+): Promise<void> {
+	await updateDoc(categoriaDoc(torneoId, categoriaId), {
+		bracketSlotsOverride: slotsOverride
+	});
 }
 
 // Borra el bracket: elimina todos los partidos con zonaId=null y resetea
@@ -161,7 +201,11 @@ export async function desarmarBracketCategoria(
 	for (const snap of partidosViejos.docs) {
 		batch.delete(snap.ref);
 	}
-	batch.update(categoriaDoc(torneoId, categoriaId), { bracketConfig: null });
+	// Desarmar tambien limpia el override: el organizador parte de cero.
+	batch.update(categoriaDoc(torneoId, categoriaId), {
+		bracketConfig: null,
+		bracketSlotsOverride: null
+	});
 	await batch.commit();
 }
 

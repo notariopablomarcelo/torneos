@@ -1,4 +1,9 @@
-import { armarBracket, type FaseBracket } from '$lib/bracket/algoritmo';
+import {
+	armarBracket,
+	armarBracketDesdeSlots,
+	type BracketArmado,
+	type FaseBracket
+} from '$lib/bracket/algoritmo';
 import { armarZonas as armarZonasAlgoritmo } from '$lib/zonas/algoritmo';
 import type { ParejaRef } from '$lib/types/armado';
 
@@ -26,12 +31,19 @@ export type ZonaPreview = {
 export type PartidoBracketPreview = {
 	numero: number;
 	ronda: number;
+	// Slot dentro de la ronda — necesario para posicionar la card en la vista
+	// grafica del cuadro (igual que en el bracket armado real).
+	posicionEnRonda: number;
 	fase: FaseBracket;
 	// Codigo corto secuencial dentro de la fase: "16-1", "8-3", "4-2", "S1",
 	// o "" (final no lleva codigo, hay solo un partido). Las refs simbolicas
 	// en `label` apuntan a este mismo codigo.
 	codigo: string;
 	label: string;
+	// Refs simbolicas — necesarias para el render grafico (resolver origen
+	// como "A1" / "G 8-1" y dibujar conectores condicionales).
+	pareja1Ref: ParejaRef;
+	pareja2Ref: ParejaRef;
 };
 
 export type EstructuraPreview = {
@@ -139,14 +151,116 @@ export function generarZonasSembradas(
 	}));
 }
 
+// Igual que `generarZonasSembradas` pero acepta una estructura personalizada
+// (lista de grupos heterogeneos). Cada grupo define cantidad, tamano,
+// modalidad y clasifican propios. El total de parejas = sum(cantidad *
+// tamano).
+export function generarZonasSembradasCustom(
+	grupos: {
+		cantidad: number;
+		tamano: 3 | 4;
+		modalidad?: 'todosContraTodos' | 'dobleOportunidad' | null;
+		clasifican: 1 | 2 | 3;
+	}[]
+): ZonaPreviewSembrada[] {
+	if (grupos.length === 0) return [];
+	// Aplano la lista de tamanos respetando el orden de los grupos.
+	const tamanos: (3 | 4)[] = [];
+	const modalidadPorIdx: ('todosContraTodos' | 'dobleOportunidad')[] = [];
+	for (const g of grupos) {
+		const modalidad: 'todosContraTodos' | 'dobleOportunidad' =
+			g.tamano === 4
+				? (g.modalidad ?? 'todosContraTodos')
+				: 'todosContraTodos';
+		for (let i = 0; i < g.cantidad; i += 1) {
+			tamanos.push(g.tamano);
+			modalidadPorIdx.push(modalidad);
+		}
+	}
+	const totalParejas = tamanos.reduce((s, t) => s + t, 0);
+	if (totalParejas < 3) return [];
+	const ids = Array.from(
+		{ length: totalParejas },
+		(_, i) => `Pareja ${String(i + 1).padStart(2, '0')}`
+	);
+	let zonasArmadas: { letra: string; tamano: 3 | 4; inscripcionIds: string[] }[];
+	try {
+		zonasArmadas = armarZonasAlgoritmo(ids, 'snake', tamanos);
+	} catch {
+		return [];
+	}
+	return zonasArmadas.map((z, idx) => ({
+		letra: z.letra,
+		tamano: z.tamano,
+		parejas: z.inscripcionIds,
+		partidos: partidosZonaPreview(z.tamano, modalidadPorIdx[idx]!)
+	}));
+}
+
+// Helper: convierte un BracketArmado del algoritmo real a la lista de
+// PartidoBracketPreview con codigos cortos y labels. Reusable desde las
+// variantes simple y custom.
+function bracketArmadoToPreview(
+	armado: BracketArmado
+): PartidoBracketPreview[] {
+	const codigosPorNumero = new Map<number, string>();
+	const contadorPorFase = new Map<string, number>();
+	const ordenados = [...armado.partidos].sort((a, b) => {
+		if (a.ronda !== b.ronda) return a.ronda - b.ronda;
+		return a.numeroEnZona - b.numeroEnZona;
+	});
+	for (const p of ordenados) {
+		if (p.fase === 'Final') {
+			codigosPorNumero.set(p.numeroEnZona, '');
+			continue;
+		}
+		const n = (contadorPorFase.get(p.fase) ?? 0) + 1;
+		contadorPorFase.set(p.fase, n);
+		let prefijo: string;
+		switch (p.fase) {
+			case '32vos':
+				prefijo = '32-';
+				break;
+			case '16vos':
+				prefijo = '16-';
+				break;
+			case '8vos':
+				prefijo = '8-';
+				break;
+			case '4tos':
+				prefijo = '4-';
+				break;
+			case 'Semis':
+				prefijo = 'S';
+				break;
+		}
+		codigosPorNumero.set(p.numeroEnZona, `${prefijo}${n}`);
+	}
+	return armado.partidos.map((p) => ({
+		numero: p.numeroEnZona,
+		ronda: p.ronda,
+		posicionEnRonda: p.posicionEnRonda,
+		fase: p.fase,
+		codigo: codigosPorNumero.get(p.numeroEnZona) ?? '',
+		label: `${labelRef(p.pareja1Ref, codigosPorNumero)} vs ${labelRef(p.pareja2Ref, codigosPorNumero)}`,
+		pareja1Ref: p.pareja1Ref,
+		pareja2Ref: p.pareja2Ref
+	}));
+}
+
 // Genera la estructura completa: zonas + bracket. El bracket reusa el
 // algoritmo real (`armarBracket`) pasando zonas ficticias con la letra y el
 // clasifican configurados.
+//
+// Si `slotsOverride` se provee y tiene length potencia de 2 valida, se usa
+// `armarBracketDesdeSlots` en lugar del sembrado snake — asi el preview
+// refleja los cruces editados por el organizador.
 export function generarPreviewEstructura(
 	cupos: number,
 	tamano: 3 | 4,
 	modalidad: 'todosContraTodos' | 'dobleOportunidad',
-	clasifican: 1 | 2 | 3
+	clasifican: 1 | 2 | 3,
+	slotsOverride?: (ParejaRef | null)[] | null
 ): EstructuraPreview | null {
 	if (cupos < 3) return null;
 	const cantZonas = Math.ceil(cupos / tamano);
@@ -161,55 +275,10 @@ export function generarPreviewEstructura(
 	let bracket: PartidoBracketPreview[] = [];
 	const zonasFicticias = zonas.map((z) => ({ letra: z.letra, clasifican }));
 	try {
-		const armado = armarBracket(zonasFicticias);
-		// Generamos codigos cortos enumerando 1..N DENTRO de cada fase, en
-		// orden de aparicion. Asi siempre arrancan en 1 y no quedan huecos
-		// (bracket con byes saltea posiciones del cuadro). La final no lleva
-		// codigo — hay solo un partido.
-		//
-		// Formato: "16-N" / "8-N" / "4-N" para fases nombradas con numeros,
-		// "S1"/"S2" para semis, "" para final.
-		const codigosPorNumero = new Map<number, string>();
-		const contadorPorFase = new Map<string, number>();
-		const ordenados = [...armado.partidos].sort((a, b) => {
-			if (a.ronda !== b.ronda) return a.ronda - b.ronda;
-			return a.numeroEnZona - b.numeroEnZona;
-		});
-		for (const p of ordenados) {
-			if (p.fase === 'Final') {
-				codigosPorNumero.set(p.numeroEnZona, '');
-				continue;
-			}
-			const n = (contadorPorFase.get(p.fase) ?? 0) + 1;
-			contadorPorFase.set(p.fase, n);
-			let prefijo: string;
-			switch (p.fase) {
-				case '32vos':
-					prefijo = '32-';
-					break;
-				case '16vos':
-					prefijo = '16-';
-					break;
-				case '8vos':
-					prefijo = '8-';
-					break;
-				case '4tos':
-					prefijo = '4-';
-					break;
-				case 'Semis':
-					prefijo = 'S';
-					break;
-			}
-			codigosPorNumero.set(p.numeroEnZona, `${prefijo}${n}`);
-		}
-
-		bracket = armado.partidos.map((p) => ({
-			numero: p.numeroEnZona,
-			ronda: p.ronda,
-			fase: p.fase,
-			codigo: codigosPorNumero.get(p.numeroEnZona) ?? '',
-			label: `${labelRef(p.pareja1Ref, codigosPorNumero)} vs ${labelRef(p.pareja2Ref, codigosPorNumero)}`
-		}));
+		const armado = slotsOverride && slotsOverride.length > 0
+			? armarBracketDesdeSlots(slotsOverride)
+			: armarBracket(zonasFicticias);
+		bracket = bracketArmadoToPreview(armado);
 	} catch {
 		// N < 2 (solo cuando cupos < 2, que ya filtramos). Bracket vacio.
 	}
@@ -219,6 +288,92 @@ export function generarPreviewEstructura(
 		tamano,
 		modalidad,
 		clasifican,
+		zonas,
+		bracket
+	};
+}
+
+// Variante para estructura personalizada (lista de grupos heterogeneos).
+// Reusa el mismo algoritmo: arma zonas con los tamanos del grupo y sembrado
+// snake; cada zona arrastra su `clasifican` correspondiente al armado del
+// bracket. Devuelve null si no hay suficientes parejas para un cuadro.
+export type EstructuraPreviewCustom = {
+	cantidadZonas: number;
+	totalParejas: number;
+	grupos: {
+		cantidad: number;
+		tamano: 3 | 4;
+		modalidad: 'todosContraTodos' | 'dobleOportunidad';
+		clasifican: 1 | 2 | 3;
+	}[];
+	zonas: ZonaPreview[];
+	bracket: PartidoBracketPreview[];
+};
+
+export function generarPreviewEstructuraCustom(
+	grupos: {
+		cantidad: number;
+		tamano: 3 | 4;
+		modalidad?: 'todosContraTodos' | 'dobleOportunidad' | null;
+		clasifican: 1 | 2 | 3;
+	}[],
+	slotsOverride?: (ParejaRef | null)[] | null
+): EstructuraPreviewCustom | null {
+	if (grupos.length === 0) return null;
+
+	// Lista paralela: tamano, modalidad y clasifican por indice de zona segun
+	// orden de grupos.
+	const tamanos: (3 | 4)[] = [];
+	const modalidadPorIdx: ('todosContraTodos' | 'dobleOportunidad')[] = [];
+	const clasificanPorIdx: (1 | 2 | 3)[] = [];
+	const gruposResueltos: EstructuraPreviewCustom['grupos'] = [];
+	for (const g of grupos) {
+		const modalidad: 'todosContraTodos' | 'dobleOportunidad' =
+			g.tamano === 4 ? (g.modalidad ?? 'todosContraTodos') : 'todosContraTodos';
+		gruposResueltos.push({
+			cantidad: g.cantidad,
+			tamano: g.tamano,
+			modalidad,
+			clasifican: g.clasifican
+		});
+		for (let i = 0; i < g.cantidad; i += 1) {
+			tamanos.push(g.tamano);
+			modalidadPorIdx.push(modalidad);
+			clasificanPorIdx.push(g.clasifican);
+		}
+	}
+	const totalParejas = tamanos.reduce((s, t) => s + t, 0);
+	if (totalParejas < 3) return null;
+
+	const cantZonas = tamanos.length;
+	const zonas: ZonaPreview[] = [];
+	for (let i = 0; i < cantZonas; i += 1) {
+		const letra = String.fromCharCode(65 + i);
+		zonas.push({
+			letra,
+			tamano: tamanos[i]!,
+			partidos: partidosZonaPreview(tamanos[i]!, modalidadPorIdx[i]!)
+		});
+	}
+
+	let bracket: PartidoBracketPreview[] = [];
+	const zonasFicticias = zonas.map((z, i) => ({
+		letra: z.letra,
+		clasifican: clasificanPorIdx[i]!
+	}));
+	try {
+		const armado = slotsOverride && slotsOverride.length > 0
+			? armarBracketDesdeSlots(slotsOverride)
+			: armarBracket(zonasFicticias);
+		bracket = bracketArmadoToPreview(armado);
+	} catch {
+		// Total < 2 (filtrado arriba).
+	}
+
+	return {
+		cantidadZonas: cantZonas,
+		totalParejas,
+		grupos: gruposResueltos,
 		zonas,
 		bracket
 	};

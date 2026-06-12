@@ -111,7 +111,8 @@
 					cantidadJugadores: obtenerCantidadJugadores(categoria),
 					tamanoPreferido: categoria.tamanoPreferido ?? null,
 					modalidadZona4: categoria.modalidadZona4 ?? null,
-					clasificanPorZona: categoria.clasificanPorZona ?? null
+					clasificanPorZona: categoria.clasificanPorZona ?? null,
+					estructuraPersonalizada: categoria.estructuraPersonalizada ?? null
 				}}
 				submitLabel="Guardar"
 				onSubmit={handleActualizar}

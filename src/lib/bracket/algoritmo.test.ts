@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
 	armarBracket,
+	armarBracketDesdeSlots,
 	esPotenciaDe2,
 	listarClasificados,
 	sembrarSnake,
-	siguientePotenciaDe2
+	siguientePotenciaDe2,
+	slotsDeBracket
 } from './algoritmo';
 import type { Clasifican, ParejaRef } from '$lib/types/armado';
 
@@ -401,5 +403,193 @@ describe('armarBracket · edge cases', () => {
 				expect(tieneA && tieneB).toBe(false);
 			}
 		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// armarBracketDesdeSlots + slotsDeBracket (editor de cruces custom)
+// ---------------------------------------------------------------------------
+
+describe('slotsDeBracket + armarBracketDesdeSlots · round trip', () => {
+	function refPosicionZona(letraZona: string, posicion: 1 | 2 | 3): ParejaRef {
+		return { tipo: 'PosicionZona', letraZona, posicion };
+	}
+
+	it('N=4 sin byes: round trip preserva bracket exacto', () => {
+		const original = armarBracket([
+			{ letra: 'A', clasifican: 2 },
+			{ letra: 'B', clasifican: 2 }
+		]);
+		const slots = slotsDeBracket(original.partidos);
+		const reconstruido = armarBracketDesdeSlots(slots);
+		expect(reconstruido.cantidadParejas).toBe(original.cantidadParejas);
+		expect(reconstruido.cantidadParejasCuadro).toBe(original.cantidadParejasCuadro);
+		expect(reconstruido.partidos.length).toBe(original.partidos.length);
+		for (let i = 0; i < original.partidos.length; i++) {
+			const a = original.partidos[i]!;
+			const b = reconstruido.partidos[i]!;
+			expect(b.fase).toBe(a.fase);
+			expect(b.ronda).toBe(a.ronda);
+			expect(b.posicionEnRonda).toBe(a.posicionEnRonda);
+			expect(b.pareja1Ref).toEqual(a.pareja1Ref);
+			expect(b.pareja2Ref).toEqual(a.pareja2Ref);
+		}
+	});
+
+	it('N=5 con byes: round trip preserva bracket exacto', () => {
+		const original = armarBracket([
+			{ letra: 'A', clasifican: 2 },
+			{ letra: 'B', clasifican: 1 },
+			{ letra: 'C', clasifican: 1 },
+			{ letra: 'D', clasifican: 1 }
+		]);
+		const slots = slotsDeBracket(original.partidos);
+		expect(slots.length).toBe(8);
+		// 5 refs reales + 3 byes.
+		expect(slots.filter((r) => r !== null).length).toBe(5);
+		expect(slots.filter((r) => r === null).length).toBe(3);
+
+		const reconstruido = armarBracketDesdeSlots(slots);
+		expect(reconstruido.partidos.length).toBe(original.partidos.length);
+		for (let i = 0; i < original.partidos.length; i++) {
+			const a = original.partidos[i]!;
+			const b = reconstruido.partidos[i]!;
+			expect(b.pareja1Ref).toEqual(a.pareja1Ref);
+			expect(b.pareja2Ref).toEqual(a.pareja2Ref);
+			expect(b.ronda).toBe(a.ronda);
+			expect(b.posicionEnRonda).toBe(a.posicionEnRonda);
+		}
+	});
+
+	it('N=10 con byes: round trip preserva bracket exacto', () => {
+		const original = armarBracket([
+			{ letra: 'A', clasifican: 3 },
+			{ letra: 'B', clasifican: 2 },
+			{ letra: 'C', clasifican: 3 },
+			{ letra: 'D', clasifican: 2 }
+		]);
+		const slots = slotsDeBracket(original.partidos);
+		expect(slots.length).toBe(16);
+		expect(slots.filter((r) => r !== null).length).toBe(10);
+		const reconstruido = armarBracketDesdeSlots(slots);
+		expect(reconstruido.partidos.length).toBe(original.partidos.length);
+	});
+});
+
+describe('armarBracketDesdeSlots · uso directo', () => {
+	function refPos(letra: string, pos: 1 | 2 | 3): ParejaRef {
+		return { tipo: 'PosicionZona', letraZona: letra, posicion: pos };
+	}
+
+	it('cuadro de 4 sin byes', () => {
+		const b = armarBracketDesdeSlots([
+			refPos('A', 1),
+			refPos('B', 2),
+			refPos('A', 2),
+			refPos('B', 1)
+		]);
+		expect(b.cantidadParejas).toBe(4);
+		expect(b.cantidadParejasCuadro).toBe(4);
+		expect(b.cantidadByes).toBe(0);
+		expect(b.partidos.length).toBe(3); // 2 R1 + 1 Final
+	});
+
+	it('cuadro de 8 con 3 byes: solo se genera 1 partido R1', () => {
+		const b = armarBracketDesdeSlots([
+			refPos('A', 1),
+			null,
+			refPos('B', 1),
+			refPos('C', 1),
+			refPos('A', 2),
+			null,
+			refPos('D', 1),
+			null
+		]);
+		expect(b.cantidadParejas).toBe(5);
+		expect(b.cantidadByes).toBe(3);
+		const r1 = b.partidos.filter((p) => p.ronda === 1);
+		expect(r1.length).toBe(1);
+		// El partido R1 es entre B1 y C1 (los slots 2,3).
+		expect(r1[0]!.pareja1Ref).toEqual(refPos('B', 1));
+		expect(r1[0]!.pareja2Ref).toEqual(refPos('C', 1));
+	});
+
+	it('cantidad de slots no potencia de 2 → throw', () => {
+		expect(() =>
+			armarBracketDesdeSlots([refPos('A', 1), refPos('B', 1), refPos('C', 1)])
+		).toThrow();
+	});
+
+	it('menos de 2 parejas en el cuadro → throw', () => {
+		expect(() =>
+			armarBracketDesdeSlots([refPos('A', 1), null])
+		).toThrow();
+	});
+
+	it('par null-null en R1 propaga vacio: el que sube de la otra mitad va directo', () => {
+		// Cuadro de 4. Par (0,1) = 2 byes. Par (2,3) = 2 refs reales (P1 R1).
+		// R2 (Final): R2.0 = null (de par sin nadie), R2.1 = GanadorP1.
+		// → P2 (Final) NO se crea normal: solo Ganador P1 avanza solo.
+		const b = armarBracketDesdeSlots([
+			null,
+			null,
+			refPos('A', 1),
+			refPos('B', 1)
+		]);
+		expect(b.cantidadParejas).toBe(2);
+		expect(b.cantidadByes).toBe(2);
+		// Solo P1 (R1) — la final no se crea porque un slot esta vacio.
+		expect(b.partidos.length).toBe(1);
+		expect(b.partidos[0]!.ronda).toBe(1);
+	});
+
+	it('swap manual: mover 1°A a otra mitad del cuadro', () => {
+		// Cuadro de 8 estandar con 5 seeds (snake [1,8,4,5,2,7,3,6]).
+		// slots originales: [1A, null, 4=A2, 5=B2, 2=B1, null, 3=C1, null]
+		// donde refs son PosicionZona.
+		const sA1 = refPos('A', 1);
+		const sB1 = refPos('B', 1);
+		const sA2 = refPos('A', 2);
+		const sB2 = refPos('B', 2);
+		const sC1 = refPos('C', 1);
+
+		const slotsOriginal = armarBracketDesdeSlots([
+			sA1,
+			null,
+			sA2,
+			sB2,
+			sB1,
+			null,
+			sC1,
+			null
+		]);
+		expect(slotsOriginal.partidos.length).toBe(4); // 1 R1 + 2 R2 + 1 Final
+
+		// Swap slot 0 (1°A) con slot 4 (1°B) → 1°A pasa a la mitad de abajo.
+		const editado = armarBracketDesdeSlots([
+			sB1,
+			null,
+			sA2,
+			sB2,
+			sA1,
+			null,
+			sC1,
+			null
+		]);
+		expect(editado.cantidadParejas).toBe(5);
+		// Misma estructura de cuadro pero cabezas en otra rama.
+		expect(editado.partidos.length).toBe(4);
+
+		// Verifico que en R2 el cruce cambio: ahora 1°A se enfrenta con
+		// 3°C (estaba 1°B), y 1°B se enfrenta con Ganador R1 (estaba 1°A).
+		const r2 = editado.partidos.filter((p) => p.ronda === 2);
+		expect(r2.length).toBe(2);
+		const labels = r2.map((p) => [p.pareja1Ref, p.pareja2Ref]);
+		const tiene1AvC1 = labels.some(
+			([a, b]) =>
+				(JSON.stringify(a) === JSON.stringify(sA1) && JSON.stringify(b) === JSON.stringify(sC1)) ||
+				(JSON.stringify(b) === JSON.stringify(sA1) && JSON.stringify(a) === JSON.stringify(sC1))
+		);
+		expect(tiene1AvC1).toBe(true);
 	});
 });

@@ -78,33 +78,34 @@ function letraZona(indice: number): string {
 	return String.fromCharCode(65 + indice);
 }
 
-// Snake draft: zonas de 4 primero (A, B, ...), zonas de 3 despues, luego
-// llenamos por "filas" alternando direccion. Las inscripciones vienen ya
-// ordenadas por ranking (1 = mejor); cuando no tienen ranking van al final.
+// Snake draft que acepta:
+//   - una distribucion { zonas3, zonas4 } (modo simple, retrocompat); o
+//   - una LISTA EXPLICITA de tamanos por zona (ej. [4, 4, 3, 3, 3]) para
+//     estructuras heterogeneas.
+//
+// Las inscripciones vienen ya ordenadas por ranking; las zonas se llenan
+// alternando direccion en cada "fila" del snake.
 export function armarZonasSnake(
 	inscripcionIdsOrdenados: string[],
-	distribucion: { zonas3: number; zonas4: number }
+	distribucionOTamanos:
+		| { zonas3: number; zonas4: number }
+		| TamanoZona[]
 ): ZonaArmada[] {
-	const { zonas3, zonas4 } = distribucion;
-	const totalZonas = zonas3 + zonas4;
+	const tamanos: TamanoZona[] = Array.isArray(distribucionOTamanos)
+		? distribucionOTamanos
+		: tamanosDeDistribucion(distribucionOTamanos);
+	const totalZonas = tamanos.length;
 
-	// Inicializamos las zonas: las de 4 al principio (A, B, ...), luego las
-	// de 3. inscripcionIds vacios; se llenan abajo.
-	const zonas: ZonaArmada[] = [];
-	for (let i = 0; i < totalZonas; i++) {
-		zonas.push({
-			letra: letraZona(i),
-			tamano: i < zonas4 ? 4 : 3,
-			inscripcionIds: []
-		});
-	}
+	const zonas: ZonaArmada[] = tamanos.map((tamano, i) => ({
+		letra: letraZona(i),
+		tamano,
+		inscripcionIds: []
+	}));
 
-	const maxFilas = zonas4 > 0 ? 4 : 3;
+	const maxFilas = Math.max(...tamanos, 0);
 	let idx = 0;
 
 	for (let fila = 0; fila < maxFilas; fila++) {
-		// Direccion: par -> izquierda a derecha; impar -> derecha a izquierda.
-		// Eso es lo que hace "snake".
 		const ascendente = fila % 2 === 0;
 		const inicio = ascendente ? 0 : totalZonas - 1;
 		const paso = ascendente ? 1 : -1;
@@ -121,18 +122,30 @@ export function armarZonasSnake(
 	return zonas;
 }
 
-// Random: respeta los tamanos pero no usa ranking. Util para torneos
-// amistosos donde no importa balancear. Acepta una funcion random custom
-// para que los tests sean deterministas.
+// Helper: convierte una distribucion {zonas3, zonas4} en una lista de
+// tamanos ordenada (4s primero). Para mantener compatibilidad con la
+// API previa que recibia `distribucion`.
+function tamanosDeDistribucion(d: {
+	zonas3: number;
+	zonas4: number;
+}): TamanoZona[] {
+	const out: TamanoZona[] = [];
+	for (let i = 0; i < d.zonas4; i++) out.push(4);
+	for (let i = 0; i < d.zonas3; i++) out.push(3);
+	return out;
+}
+
+// Random con distribucion o lista explicita.
 export function armarZonasRandom(
 	inscripcionIds: string[],
-	distribucion: { zonas3: number; zonas4: number },
+	distribucionOTamanos:
+		| { zonas3: number; zonas4: number }
+		| TamanoZona[],
 	random: () => number = Math.random
 ): ZonaArmada[] {
-	const { zonas3, zonas4 } = distribucion;
-	const totalZonas = zonas3 + zonas4;
-
-	// Fisher-Yates shuffle con random inyectable.
+	const tamanos: TamanoZona[] = Array.isArray(distribucionOTamanos)
+		? distribucionOTamanos
+		: tamanosDeDistribucion(distribucionOTamanos);
 	const mezclados = [...inscripcionIds];
 	for (let i = mezclados.length - 1; i > 0; i--) {
 		const j = Math.floor(random() * (i + 1));
@@ -141,8 +154,8 @@ export function armarZonasRandom(
 
 	const zonas: ZonaArmada[] = [];
 	let idx = 0;
-	for (let i = 0; i < totalZonas; i++) {
-		const tamano: TamanoZona = i < zonas4 ? 4 : 3;
+	for (let i = 0; i < tamanos.length; i++) {
+		const tamano = tamanos[i]!;
 		zonas.push({
 			letra: letraZona(i),
 			tamano,
@@ -153,16 +166,26 @@ export function armarZonasRandom(
 	return zonas;
 }
 
-// Facade que elige el algoritmo segun la config.
+// Facade que elige el algoritmo segun la config. Acepta o un
+// `tamanoPreferido` (modo simple, deriva la distribucion automatica)
+// o una lista explicita de tamanos (modo personalizado).
 export function armarZonas(
 	inscripcionIdsOrdenados: string[],
 	algoritmo: Algoritmo,
-	tamanoPreferido: TamanoZona,
+	tamanoOTamanos: TamanoZona | TamanoZona[],
 	random?: () => number
 ): ZonaArmada[] {
-	const dist = calcularDistribucion(inscripcionIdsOrdenados.length, tamanoPreferido);
-	if (algoritmo === 'snake') return armarZonasSnake(inscripcionIdsOrdenados, dist);
-	return armarZonasRandom(inscripcionIdsOrdenados, dist, random);
+	const tamanos: TamanoZona[] = Array.isArray(tamanoOTamanos)
+		? tamanoOTamanos
+		: tamanosDeDistribucion(
+				calcularDistribucion(
+					inscripcionIdsOrdenados.length,
+					tamanoOTamanos
+				)
+			);
+	if (algoritmo === 'snake')
+		return armarZonasSnake(inscripcionIdsOrdenados, tamanos);
+	return armarZonasRandom(inscripcionIdsOrdenados, tamanos, random);
 }
 
 // ===========================================================================

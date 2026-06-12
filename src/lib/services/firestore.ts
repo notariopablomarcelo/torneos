@@ -1,10 +1,10 @@
 import {
 	collection,
+	db,
 	doc,
 	type CollectionReference,
 	type DocumentReference
-} from 'firebase/firestore';
-import { db } from '$lib/firebase';
+} from '$lib/db';
 import type { Categoria, Torneo } from '$lib/types/torneo';
 import type { Jugador } from '$lib/types/jugador';
 import type { Inscripcion } from '$lib/types/inscripcion';

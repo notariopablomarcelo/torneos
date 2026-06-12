@@ -1,5 +1,6 @@
 import {
 	addDoc,
+	db,
 	deleteDoc,
 	getDoc,
 	getDocs,
@@ -8,8 +9,7 @@ import {
 	query,
 	updateDoc,
 	writeBatch
-} from 'firebase/firestore';
-import { db } from '$lib/firebase';
+} from '$lib/db';
 import {
 	canchaDoc,
 	canchasCol,

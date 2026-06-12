@@ -19,12 +19,54 @@ export type TamanoZona = z.infer<typeof tamanoZonaSchema>;
 export const clasificanSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
 export type Clasifican = z.infer<typeof clasificanSchema>;
 
+// Grupo de zonas con misma configuracion. La estructura personalizada de
+// una categoria es un array de estos grupos — ej. "2 zonas de 4 con DO
+// clasifican 3" + "5 zonas de 3 clasifican 2". El total de parejas que
+// entran es sum(cantidad * tamano).
+export const grupoZonasSchema = z
+	.object({
+		cantidad: z.number().int().min(1).max(64),
+		tamano: tamanoZonaSchema,
+		// Solo aplica si tamano === 4. Para zonas de 3 la modalidad es
+		// implicitamente "todosContraTodos".
+		modalidad: modalidadZona4Schema.optional().nullable(),
+		clasifican: clasificanSchema
+	})
+	.refine(
+		(g) => {
+			// Capping: zona de 3 admite max 2 clasifican; zona de 4 max 3.
+			const max = g.tamano - 1;
+			return g.clasifican <= max;
+		},
+		{
+			message:
+				'Clasifican no puede superar el tamano de la zona menos 1',
+			path: ['clasifican']
+		}
+	);
+
+export type GrupoZonas = z.infer<typeof grupoZonasSchema>;
+
+// Suma de parejas que entran a una lista de grupos: cantidad * tamano por grupo.
+export function totalParejasEnGrupos(grupos: GrupoZonas[]): number {
+	return grupos.reduce((acc, g) => acc + g.cantidad * g.tamano, 0);
+}
+
+// Cantidad total de zonas en una lista de grupos.
+export function totalZonasEnGrupos(grupos: GrupoZonas[]): number {
+	return grupos.reduce((acc, g) => acc + g.cantidad, 0);
+}
+
 export const armadoConfigSchema = z.object({
 	algoritmo: algoritmoSchema,
 	tamanoPreferido: tamanoZonaSchema,
 	modalidadZona4: modalidadZona4Schema,
 	clasificanPorZona: clasificanSchema,
-	armadoEn: z.string()
+	armadoEn: z.string(),
+	// Snapshot de la estructura usada al armar. Si la categoria tenia
+	// `estructuraPersonalizada`, se persiste aca; sino queda undefined
+	// y manda `tamanoPreferido` + `modalidadZona4` + `clasificanPorZona`.
+	grupos: z.array(grupoZonasSchema).optional()
 });
 export type ArmadoConfig = z.infer<typeof armadoConfigSchema>;
 
@@ -40,6 +82,19 @@ export type ParejaRef =
 	| { tipo: 'GanadorPartido'; numeroEnZona: number }
 	| { tipo: 'PerdedorPartido'; numeroEnZona: number }
 	| { tipo: 'PosicionZona'; letraZona: string; posicion: 1 | 2 | 3 };
+
+// Zod schema asociado para persistir/validar refs (las usamos en el override
+// de slots del bracket — ver bracketConfigSchema).
+export const parejaRefSchema = z.discriminatedUnion('tipo', [
+	z.object({ tipo: z.literal('Inscripcion'), inscripcionId: z.string() }),
+	z.object({ tipo: z.literal('GanadorPartido'), numeroEnZona: z.number().int() }),
+	z.object({ tipo: z.literal('PerdedorPartido'), numeroEnZona: z.number().int() }),
+	z.object({
+		tipo: z.literal('PosicionZona'),
+		letraZona: z.string(),
+		posicion: z.union([z.literal(1), z.literal(2), z.literal(3)])
+	})
+]);
 
 // Estado de una zona armada. La modalidad y clasifican se guardan en la
 // propia zona (no solo en la config macro de la categoria) porque despues
@@ -135,7 +190,12 @@ export type Partido = {
 // reconstruir/mostrar el cuadro sin recalcular todo).
 export const bracketConfigSchema = z.object({
 	cantidadParejas: z.number().int().min(2).max(64),
-	armadoEn: z.string()
+	armadoEn: z.string(),
+	// Override manual de slots del cuadro. Si esta presente, `armarBracket`
+	// lo usa via `armarBracketDesdeSlots` en lugar del sembrado snake default.
+	// Length === cantidadParejasCuadro (potencia de 2 ≥ cantidadParejas).
+	// Cada item es una ref de pareja o null (= bye en ese slot).
+	slotsOverride: z.array(parejaRefSchema.nullable()).optional().nullable()
 });
 export type BracketConfig = z.infer<typeof bracketConfigSchema>;
 

@@ -87,10 +87,35 @@
 
 	// Resumen de preferencia de estructura para mostrar en la card. Si la
 	// categoria no la tiene seteada devuelve null y la card no la muestra.
+	// Si tiene estructura personalizada, describe cada grupo.
 	const resumenEstructura = $derived.by(() => {
 		if (!categoria) return null;
-		const { tamanoPreferido, modalidadZona4, clasificanPorZona, cupos } =
-			categoria;
+		const {
+			tamanoPreferido,
+			modalidadZona4,
+			clasificanPorZona,
+			cupos,
+			estructuraPersonalizada
+		} = categoria;
+		// Modo custom: cada grupo es una linea.
+		if (estructuraPersonalizada && estructuraPersonalizada.length > 0) {
+			const partes = estructuraPersonalizada.map((g) => {
+				const tamLabel = `Zona${g.cantidad === 1 ? '' : 's'} de ${g.tamano}`;
+				const modalidadLabel =
+					g.tamano === 4
+						? g.modalidad === 'dobleOportunidad'
+							? ' DO'
+							: ' RR'
+						: '';
+				return `${g.cantidad} ${tamLabel}${modalidadLabel} · clasifican ${g.clasifican}`;
+			});
+			const cantZonas = estructuraPersonalizada.reduce(
+				(s, g) => s + g.cantidad,
+				0
+			);
+			return { partes, cantZonas, custom: true as const };
+		}
+		// Modo simple.
 		if (!tamanoPreferido && !clasificanPorZona) return null;
 		const partes: string[] = [];
 		if (tamanoPreferido) {
@@ -110,7 +135,7 @@
 		}
 		const cantZonas =
 			cupos && tamanoPreferido ? Math.ceil(cupos / tamanoPreferido) : null;
-		return { partes, cantZonas };
+		return { partes, cantZonas, custom: false as const };
 	});
 
 	// Texto de la sub-info de Inscripciones / Zonas.

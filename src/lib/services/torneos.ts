@@ -6,7 +6,7 @@ import {
 	orderBy,
 	query,
 	updateDoc
-} from 'firebase/firestore';
+} from '$lib/db';
 import { torneoDoc, torneosCol } from './firestore';
 import type { Torneo, TorneoInput } from '$lib/types/torneo';
 

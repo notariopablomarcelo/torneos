@@ -1,5 +1,6 @@
 import {
 	collectionGroup,
+	db,
 	deleteDoc,
 	doc,
 	getDocs,
@@ -8,8 +9,7 @@ import {
 	updateDoc,
 	where,
 	writeBatch
-} from 'firebase/firestore';
-import { db } from '$lib/firebase';
+} from '$lib/db';
 import {
 	categoriasCol,
 	inscripcionesCol,
@@ -49,7 +49,11 @@ export function suscribirTodasLasCanchas(
 	return onSnapshot(q, (snap) => {
 		callback(
 			snap.docs
-				.filter((d) => d.ref.parent.parent?.parent.id === 'sedes')
+				// Solo Canchas reales (viven bajo `sedes/`). Excluye
+				// TorneoCancha que vive bajo `torneos/`. Funciona en
+				// firebase (ref.path = "sedes/abc/canchas/xyz") y en local
+				// (la misma convencion de path completo).
+				.filter((d) => d.ref.path.startsWith('sedes/'))
 				.map((d) => ({
 					id: d.id,
 					...(d.data() as Omit<Cancha, 'id'>)
@@ -229,9 +233,40 @@ export function estimarRangoPartidosCategoria(c: {
 	tamanoPreferido?: 3 | 4 | null;
 	modalidadZona4?: 'todosContraTodos' | 'dobleOportunidad' | null;
 	clasificanPorZona?: 1 | 2 | 3 | null;
+	estructuraPersonalizada?:
+		| {
+				cantidad: number;
+				tamano: 3 | 4;
+				modalidad?: 'todosContraTodos' | 'dobleOportunidad' | null;
+				clasifican: 1 | 2 | 3;
+		  }[]
+		| null;
 }): { min: number; max: number } {
 	if (c.cupos === null || c.cupos < 3) return { min: 0, max: 0 };
 	const N = c.cupos;
+
+	// Si hay estructura personalizada, suma de partidos por grupo. Valor
+	// puntual (min === max) — la config ya esta totalmente definida.
+	if (c.estructuraPersonalizada && c.estructuraPersonalizada.length > 0) {
+		let partidosZonas = 0;
+		let clasificados = 0;
+		for (const g of c.estructuraPersonalizada) {
+			const modalidad =
+				g.tamano === 4
+					? (g.modalidad ?? 'todosContraTodos')
+					: 'todosContraTodos';
+			const porZona =
+				g.tamano === 3
+					? 3
+					: modalidad === 'todosContraTodos'
+						? 6
+						: 4;
+			partidosZonas += g.cantidad * porZona;
+			clasificados += g.cantidad * g.clasifican;
+		}
+		const v = partidosZonas + Math.max(0, clasificados - 1);
+		return { min: v, max: v };
+	}
 
 	// Si hay estructura COMPLETA, el rango es puntual.
 	if (c.tamanoPreferido && c.clasificanPorZona) {
@@ -290,6 +325,14 @@ export function estimarRangoDemandaTorneo(
 		tamanoPreferido?: 3 | 4 | null;
 		modalidadZona4?: 'todosContraTodos' | 'dobleOportunidad' | null;
 		clasificanPorZona?: 1 | 2 | 3 | null;
+		estructuraPersonalizada?:
+			| {
+					cantidad: number;
+					tamano: 3 | 4;
+					modalidad?: 'todosContraTodos' | 'dobleOportunidad' | null;
+					clasifican: 1 | 2 | 3;
+			  }[]
+			| null;
 	}[]
 ): { min: number; max: number } {
 	return categorias.reduce(
