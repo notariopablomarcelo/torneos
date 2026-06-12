@@ -259,10 +259,11 @@
 					type="button"
 					onclick={() => (sheetNueva = true)}
 					disabled={cantidadDisponiblesNueva < cantidad}
-					class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+					aria-label={`Nueva ${sustantivoInscripcion(cantidad)}`}
+					title={`Nueva ${sustantivoInscripcion(cantidad)}`}
+					class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-3 py-2 text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
 				>
-					<i class="bi bi-plus-lg"></i>
-					Nueva {sustantivoInscripcion(cantidad)}
+					<i class="bi bi-plus-lg text-base"></i>
 				</button>
 			</div>
 		</header>

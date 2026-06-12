@@ -556,10 +556,22 @@
 						label: labelPartido(p),
 						parejas: parejasPotencialesDePartido(p)
 					}));
+		// Pre-ordenar canchas por nombre natural (Cancha 1, 2, 3, ... 10).
+		// El greedy desempata slots con misma fecha+hora respetando el orden
+		// que recibe — asi recorre las canchas en orden visible al usuario.
+		const colator = new Intl.Collator(undefined, {
+			numeric: true,
+			sensitivity: 'base'
+		});
+		const canchasTorneoOrdenadas = [...canchasTorneo].sort((a, b) => {
+			const nA = canchasPorId.get(a.canchaId)?.nombre ?? a.canchaId;
+			const nB = canchasPorId.get(b.canchaId)?.nombre ?? b.canchaId;
+			return colator.compare(nA, nB);
+		});
 		resultadoSugerencia = sugerirProgramacion({
 			partidosSinProgramar: sinProgramar,
 			partidosYaProgramados: yaProgramados,
-			canchasTorneo,
+			canchasTorneo: canchasTorneoOrdenadas,
 			bloqueosPorPareja
 		});
 	}

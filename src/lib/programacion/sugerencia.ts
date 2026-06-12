@@ -81,8 +81,12 @@ type SlotPropuesto = ProgramacionPartido;
 // =============================================================================
 
 // Precalcula todos los slots posibles ordenados cronologicamente. Cada slot
-// representa el INICIO de un partido de duracion fija.
+// representa el INICIO de un partido de duracion fija. El desempate entre
+// slots con misma fecha+hora respeta el ORDEN DE LAS CANCHAS RECIBIDAS — asi
+// el caller decide la prioridad (Cancha 1, Cancha 2, ... en orden natural)
+// pre-ordenando la lista antes de llamar a esta funcion.
 function calcularSlots(canchas: TorneoCancha[]): SlotPropuesto[] {
+	const ordenCancha = new Map(canchas.map((c, i) => [c.canchaId, i]));
 	const slots: SlotPropuesto[] = [];
 	for (const cancha of canchas) {
 		for (const disp of cancha.disponibilidad) {
@@ -104,7 +108,9 @@ function calcularSlots(canchas: TorneoCancha[]): SlotPropuesto[] {
 	slots.sort((a, b) => {
 		if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
 		if (a.hora !== b.hora) return a.hora.localeCompare(b.hora);
-		return a.canchaId.localeCompare(b.canchaId);
+		return (
+			(ordenCancha.get(a.canchaId) ?? 0) - (ordenCancha.get(b.canchaId) ?? 0)
+		);
 	});
 	return slots;
 }

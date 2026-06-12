@@ -154,7 +154,27 @@ export async function getDocs(
 	qOrCol: Query | CollectionRef
 ): Promise<QuerySnapshot> {
 	const docs = await fetchDocsFor(qOrCol);
-	const snaps = docs.map((d) => makeDocSnap(refFor(qOrCol, d.id), d));
+	const isColGroup =
+		qOrCol.__kind === 'query' && qOrCol.isCollectionGroup === true;
+	const snaps = docs.map((d) => {
+		// Para collectionGroup, fetchDocsFor adjunta el path completo de la
+		// coleccion padre como __path. Si no lo usaramos, el ref.path quedaria
+		// como "{name}/{id}" (ej. "canchas/abc") en vez del path real
+		// (ej. "sedes/xyz/canchas/abc"), rompiendo cualquier filtro por path
+		// que haga el consumer (caso: suscribirTodasLasCanchas filtra por
+		// startsWith('sedes/')).
+		if (isColGroup && '__path' in d && typeof d.__path === 'string') {
+			const realColPath = d.__path;
+			const { __path: _omit, ...clean } = d as DocData & { __path: string };
+			const ref: DocRef = {
+				__kind: 'doc',
+				path: `${realColPath}/${d.id}`,
+				id: d.id
+			};
+			return makeDocSnap(ref, clean as DocData);
+		}
+		return makeDocSnap(refFor(qOrCol, d.id), d);
+	});
 	return { docs: snaps, size: snaps.length };
 }
 

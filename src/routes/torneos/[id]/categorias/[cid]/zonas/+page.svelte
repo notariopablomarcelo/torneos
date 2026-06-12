@@ -173,6 +173,26 @@
 		categoria = await obtenerCategoria(tid, cid);
 	}
 
+	// La categoria tiene preferencias suficientes para armar sin pedir nada
+	// mas al usuario via wizard. Dos modos:
+	//   - custom: estructuraPersonalizada definida.
+	//   - simple: tamanoPreferido + clasificanPorZona (y modalidadZona4 si
+	//     tamanoPreferido === 4).
+	const tienePreferenciasCompletas = $derived.by(() => {
+		if (!categoria) return false;
+		if (
+			categoria.estructuraPersonalizada &&
+			categoria.estructuraPersonalizada.length > 0
+		)
+			return true;
+		if (!categoria.tamanoPreferido) return false;
+		if (!categoria.clasificanPorZona) return false;
+		if (categoria.tamanoPreferido === 4 && !categoria.modalidadZona4) return false;
+		return true;
+	});
+
+	let armando = $state(false);
+
 	async function handleArmar(config: Omit<ArmadoConfig, 'armadoEn'>) {
 		// Si la categoria tiene estructura personalizada cargada, la
 		// inyectamos en el config del armado para que el servicio genere
@@ -186,12 +206,65 @@
 		sheetArmado = false;
 	}
 
-	function handleRearmar() {
+	// Armado directo desde las preferencias de la categoria (sin abrir el
+	// wizard). Construye el ArmadoConfig usando custom o simple segun
+	// corresponda y llama al servicio.
+	async function armarConPreferencias() {
+		if (!categoria || !tienePreferenciasCompletas) return;
+		armando = true;
+		try {
+			const grupos = categoria.estructuraPersonalizada;
+			if (grupos && grupos.length > 0) {
+				// Modo custom: el primer grupo define los valores "preferido"
+				// de fallback (no se usan para armar — el servicio lee
+				// `grupos` —, pero el ArmadoConfig necesita esos campos).
+				const primero = grupos[0]!;
+				await armarZonasCategoria(tid, cid, inscripciones, {
+					algoritmo: 'snake',
+					tamanoPreferido: primero.tamano,
+					modalidadZona4: primero.modalidad ?? 'todosContraTodos',
+					clasificanPorZona: primero.clasifican,
+					grupos
+				});
+			} else {
+				await armarZonasCategoria(tid, cid, inscripciones, {
+					algoritmo: 'snake',
+					tamanoPreferido: categoria.tamanoPreferido!,
+					modalidadZona4:
+						categoria.tamanoPreferido === 4
+							? (categoria.modalidadZona4 ?? 'todosContraTodos')
+							: 'todosContraTodos',
+					clasificanPorZona: categoria.clasificanPorZona!
+				});
+			}
+			await refrescarCategoria();
+		} catch (err) {
+			alert(err instanceof Error ? err.message : 'Error al armar las zonas.');
+		} finally {
+			armando = false;
+		}
+	}
+
+	// Entry-point unificado del boton "Armar zonas": si hay preferencias
+	// completas, arma directo; sino, abre el wizard.
+	async function handleClickArmar() {
+		if (tienePreferenciasCompletas) {
+			await armarConPreferencias();
+		} else {
+			sheetArmado = true;
+		}
+	}
+
+	async function handleRearmar() {
 		const ok = confirm(
 			'Re-armar borra las zonas y partidos actuales (con sus resultados si los hay) y vuelve a generar todo. ¿Continuar?'
 		);
 		if (!ok) return;
-		sheetArmado = true;
+		if (tienePreferenciasCompletas) {
+			await armarConPreferencias();
+		} else {
+			sheetArmado = true;
+		}
 	}
 
 	async function handleDesarmar() {
@@ -328,12 +401,16 @@
 			{:else}
 				<button
 					type="button"
-					onclick={() => (sheetArmado = true)}
-					disabled={!armadoPosible.ok}
+					onclick={handleClickArmar}
+					disabled={!armadoPosible.ok || armando}
 					title={!armadoPosible.ok ? armadoPosible.motivo : ''}
 					class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
 				>
-					<i class="bi bi-diagram-3"></i>
+					{#if armando}
+						<i class="bi bi-arrow-clockwise animate-spin"></i>
+					{:else}
+						<i class="bi bi-diagram-3"></i>
+					{/if}
 					Armar zonas
 				</button>
 			{/if}

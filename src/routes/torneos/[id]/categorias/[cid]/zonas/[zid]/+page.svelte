@@ -284,6 +284,30 @@
 		partidoEditandoId = null;
 	}
 
+	// ===== Autocarga de resultados (solo no-prod) =====
+	//
+	// Genera resultados random para todos los partidos PENDIENTES de la zona
+	// con `generarResultadoPartido`. Util para probar el flujo de cierre de
+	// zona / armado de bracket sin tener que tipear sets uno por uno.
+	let autoCargando = $state(false);
+
+	async function handleAutocargarResultados() {
+		const pendientes = partidos.filter(
+			(p) => p.zonaId === zid && p.resultado === null
+		);
+		if (pendientes.length === 0) return;
+		autoCargando = true;
+		try {
+			for (const p of pendientes) {
+				await cargarResultadoPartido(tid, cid, p.id, generarResultadoPartido());
+			}
+		} catch (err) {
+			alert(err instanceof Error ? err.message : 'Error al autocargar resultados.');
+		} finally {
+			autoCargando = false;
+		}
+	}
+
 	// ===== Cambio de modalidad =====
 
 	let sheetModalidad = $state(false);
@@ -438,6 +462,27 @@
 					>
 						{est === 'Finalizada' ? 'Finalizada' : 'En curso'}
 					</span>
+				{/if}
+				{#if AMBIENTE !== 'prod'}
+					{@const pendientesZona = partidos.filter(
+						(p) => p.zonaId === zid && p.resultado === null
+					).length}
+					{#if pendientesZona > 0}
+						<button
+							type="button"
+							onclick={handleAutocargarResultados}
+							disabled={autoCargando}
+							title="Carga resultados random a todos los partidos pendientes (solo dev)"
+							class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
+						>
+							{#if autoCargando}
+								<i class="bi bi-arrow-clockwise animate-spin"></i>
+							{:else}
+								<i class="bi bi-magic"></i>
+							{/if}
+							Test · {pendientesZona}
+						</button>
+					{/if}
 				{/if}
 				<KebabMenu label="Acciones de la zona" items={kebabItems} />
 			</div>

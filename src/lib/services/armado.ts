@@ -22,11 +22,15 @@ import {
 	generarPartidosDeZona,
 	reconciliarPartidos
 } from '$lib/zonas/algoritmo';
-import { armarBracket } from '$lib/bracket/algoritmo';
+import {
+	armarBracket,
+	armarBracketDesdeSlots
+} from '$lib/bracket/algoritmo';
 import type {
 	ArmadoConfig,
 	BracketConfig,
 	ModalidadZona4,
+	ParejaRef,
 	Partido,
 	ResultadoPartido,
 	TamanoZona,
@@ -185,7 +189,18 @@ export async function armarZonasCategoria(
 			? clasificanPorZonaIdx[zIdx]!
 			: (Math.min(config.clasificanPorZona, z.tamano - 1) as 1 | 2 | 3)
 	}));
-	const bracketArmado = armarBracket(zonasParaBracket);
+	// Si la categoria tiene un override de slots configurado (desde el editor
+	// de cruces del preview), lo respetamos: usamos `armarBracketDesdeSlots`
+	// en lugar del sembrado snake default. Asi los cruces custom que el
+	// organizador configuro NO se pierden al armar zonas con inscripciones.
+	const catSnap = await getDoc(categoriaDoc(torneoId, categoriaId));
+	const catData = catSnap.data() as
+		| { bracketSlotsOverride?: (ParejaRef | null)[] | null }
+		| undefined;
+	const slotsOverride = catData?.bracketSlotsOverride ?? null;
+	const bracketArmado = slotsOverride && slotsOverride.length > 0
+		? armarBracketDesdeSlots(slotsOverride)
+		: armarBracket(zonasParaBracket);
 	const bracketId = doc(partidosCol(torneoId, categoriaId)).id;
 	for (const plantilla of bracketArmado.partidos) {
 		const docRef = doc(partidosCol(torneoId, categoriaId));
@@ -210,7 +225,8 @@ export async function armarZonasCategoria(
 	const armadoConfig: ArmadoConfig = { ...config, armadoEn: ahora };
 	const bracketConfig: BracketConfig = {
 		cantidadParejas: bracketArmado.cantidadParejas,
-		armadoEn: ahora
+		armadoEn: ahora,
+		slotsOverride
 	};
 	batch.update(categoriaDoc(torneoId, categoriaId), {
 		armadoConfig,

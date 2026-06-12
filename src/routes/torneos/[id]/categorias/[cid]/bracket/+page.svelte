@@ -89,6 +89,7 @@
 		rondaActivaManual = null;
 		vistaCuadro = 'lista';
 		cuadroExpandido = false;
+		cuadroExpandidoPrev = null;
 		// Cerrar editor en curso — si quedaba abierto, sus slotsEdit son de
 		// la categoria anterior; guardar dispararia armado con datos viejos.
 		modoEdicion = false;
@@ -279,9 +280,29 @@
 	// cuadro. Util en desktop para leer sin scrollear tanto.
 	let cuadroExpandido = $state(false);
 
-	// Modo modal: el cuadro editor se levanta en un overlay full-screen
-	// para aprovechar todo el viewport. Solo aplica en modo edicion.
+	// Modo modal: el cuadro editor o vista se levanta en un overlay
+	// full-screen para aprovechar todo el viewport.
 	let cuadroModal = $state(false);
+	// Snapshot del cuadroExpandido previo al abrir el modal. Al cerrar, lo
+	// restauramos para no dejar la vista normal "expandida" sin que el
+	// usuario lo haya pedido. Null = no hay snapshot activo.
+	let cuadroExpandidoPrev = $state<boolean | null>(null);
+
+	function abrirCuadroModal() {
+		if (cuadroExpandidoPrev === null) {
+			cuadroExpandidoPrev = cuadroExpandido;
+		}
+		cuadroExpandido = true;
+		cuadroModal = true;
+	}
+
+	function cerrarCuadroModal() {
+		cuadroModal = false;
+		if (cuadroExpandidoPrev !== null) {
+			cuadroExpandido = cuadroExpandidoPrev;
+			cuadroExpandidoPrev = null;
+		}
+	}
 
 	// El full-bleed del cuadro (escapar del max-w-4xl) NO aplica dentro
 	// del modal — ahi el contenedor mismo ya cubre el viewport.
@@ -912,12 +933,6 @@
 							label: 'Re-armar',
 							icono: 'bi-arrow-clockwise',
 							onClick: handleRearmar
-						},
-						{
-							label: 'Desarmar',
-							icono: 'bi-x-circle',
-							onClick: handleDesarmar,
-							destructive: true
 						}
 					]}
 				/>
@@ -1153,180 +1168,15 @@
 		{:else}
 			{@render tabsVista()}
 
-			{#if !modoEdicion}
-				<!-- Barra de acciones del cuadro armado: visible siempre en este
-				     bloque, sin necesidad de scrollear al header. -->
-				<div class="mb-3 flex flex-wrap items-center justify-end gap-2">
-					<button
-						type="button"
-						onclick={abrirEditor}
-						class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-					>
-						<i class="bi bi-pencil-square"></i>
-						Editar cruces
-					</button>
-				</div>
-			{/if}
-
 			{#if modoEdicion && modoEditorFuente === 'armado' && !cuadroModal}
 				{@render cuadroEditarRender()}
 				{@render editorBarra()}
 			{:else if modoEdicion && modoEditorFuente === 'armado' && cuadroModal}
 				<!-- Vivido en el modal overlay abajo. -->
-			{:else if vistaCuadro === 'cuadro'}
-				<!-- Vista CUADRO: columnas por ronda, posicionamos cada card en
-				     su coordenada Y exacta usando `posicionEnRonda` (slot del
-				     cuadro). Asi byes y cruces quedan en la posicion correcta
-				     y los conectores caen donde corresponde.
-				     SLOT_RONDA1 = 2^(rondas-1) = cuadro/2: derivado del numero
-				     total de rondas (NO del max posicionEnRonda real), porque
-				     cuando los byes caen en slots altos del snake R1 puede
-				     tener su partido real en un slot intermedio y el max
-				     subestima la altura del cuadro. -->
-				{@const SLOT_RONDA1 = Math.pow(2, rondas.length - 1)}
-				{@const ALTO_SLOT = cuadroExpandido ? 130 : 90}
-				{@const ALTURA_TOTAL = Math.max(cuadroExpandido ? 600 : 440, SLOT_RONDA1 * ALTO_SLOT)}
-				{@const ANCHO_COL = cuadroExpandido ? 340 : 220}
-				<!-- Panel con scroll propio (horizontal y vertical). Necesario
-				     para que el sticky de los headers funcione: sticky se ancla
-				     al ancestor con overflow auto/scroll mas cercano.
-				     Cuando expandido: full-bleed (w-screen + margenes negativos)
-				     para escapar del max-w-4xl del wrapper y aprovechar todo el
-				     ancho del viewport en desktop. -->
-				<div
-					class="overflow-auto border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 rounded-xl {aplicarFullBleed ? 'w-[calc(100vw-20px)] ml-[calc(50%-50vw+10px)]' : ''}"
-					style="max-height: 75vh;"
-				>
-					<div class="flex gap-12">
-						{#each rondas as g, idxRonda (g.ronda)}
-							{@const slotsRonda = SLOT_RONDA1 / Math.pow(2, idxRonda)}
-							{@const espacioPorSlot = ALTURA_TOTAL / Math.max(slotsRonda, 1)}
-							<div class="shrink-0" style="width: {ANCHO_COL}px;">
-								<!-- Header sticky: fijo arriba al scrollear vertical
-								     dentro del panel. Se mueve horizontal con su columna. -->
-								<div
-									class="sticky top-0 z-10 mb-2 bg-white dark:bg-gray-900"
-								>
-									<p class="border-b border-gray-100 py-2 text-center font-semibold tracking-wider text-gray-500 uppercase dark:border-gray-800 dark:text-gray-400 {cuadroExpandido ? 'text-[13px]' : 'text-[11px]'}">
-										{g.fase}
-									</p>
-								</div>
-								<!-- Contenedor relativo: cada card se posiciona en
-								     Y = (slot - 0.5) * espacioPorSlot, centrada con
-								     translateY(-50%). -->
-								<div class="relative" style="height: {ALTURA_TOTAL}px;">
-									{#each g.partidos as p, idxPartido (p.id)}
-										{@const slot = p.posicionEnRonda ?? idxPartido + 1}
-										{@const top = (slot - 0.5) * espacioPorSlot}
-										<!-- ¿Tiene dependencia con la ronda anterior?
-										     Solo si alguna de sus parejas es Ganador o
-										     Perdedor de un partido previo. Si ambas son
-										     PosicionZona (vienen directo de zona via bye),
-										     no hay linea entrante. -->
-										{@const tieneEntrada =
-											p.pareja1Ref.tipo === 'GanadorPartido' ||
-											p.pareja1Ref.tipo === 'PerdedorPartido' ||
-											p.pareja2Ref.tipo === 'GanadorPartido' ||
-											p.pareja2Ref.tipo === 'PerdedorPartido'}
-										{@const jugado = p.resultado !== null}
-										{@const gana1 = jugado && p.resultado!.ganadorEs === 1}
-										{@const gana2 = jugado && p.resultado!.ganadorEs === 2}
-										{@const nombres1 = nombresDeParejaRef(p.pareja1Ref)}
-										{@const nombres2 = nombresDeParejaRef(p.pareja2Ref)}
-										{@const origen1 = origenDeParejaRef(p.pareja1Ref)}
-										{@const origen2 = origenDeParejaRef(p.pareja2Ref)}
-										{@const sets = p.resultado?.sets ?? []}
-										<!-- Card del partido posicionada por slot. -->
-										{@const codigoArm = codigosArmado.get(p.id) ?? ''}
-										<button
-											type="button"
-											onclick={() => abrirResultado(p.id)}
-											class="absolute rounded-md border border-gray-200 bg-white text-left shadow-sm transition hover:border-brand-400 hover:shadow dark:border-gray-700 dark:bg-gray-800 dark:hover:border-brand-500"
-											style="top: {top}px; left: 0; right: 0; transform: translateY(-50%);"
-										>
-											{#if codigoArm}
-												<!-- Codigo corto identificatorio del partido en el cuadro. -->
-												<span class="absolute top-1 right-1 rounded font-mono {cuadroExpandido ? 'text-[11px]' : 'text-[9px]'} font-semibold tracking-wide text-gray-400 dark:text-gray-500">
-													{codigoArm}
-												</span>
-											{/if}
-											<!-- Conector entrante: solo si la card tiene una
-											     dependencia real con la ronda anterior. -->
-											{#if idxRonda > 0 && tieneEntrada}
-												<span
-													class="pointer-events-none absolute top-1/2 -left-6 h-px w-6 bg-gray-300 dark:bg-gray-600"
-												></span>
-											{/if}
-											<!-- Pareja 1: nombres apilados (uno arriba del otro) -->
-											<div class="flex items-start gap-1.5 border-b border-gray-100 dark:border-gray-700 {cuadroExpandido ? 'px-3 py-2' : 'px-2 py-1.5'}">
-												{#if origen1}
-													<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded bg-gray-100 font-mono font-semibold text-gray-500 dark:bg-gray-700 dark:text-gray-400 {cuadroExpandido ? 'h-5 w-9 text-[11px]' : 'h-4 w-7 text-[9px]'}">
-														{origen1}
-													</span>
-												{/if}
-												<div class="min-w-0 flex-1">
-													{#each nombres1 as n, j (j)}
-														<p class="truncate leading-tight {cuadroExpandido ? 'text-[14px]' : 'text-[11px]'} {gana1 ? 'font-bold text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'}">
-															{n}
-														</p>
-													{/each}
-												</div>
-												{#if jugado}
-													<span class="mt-0.5 shrink-0 font-mono {cuadroExpandido ? 'text-[13px]' : 'text-[10px]'} {gana1 ? 'font-bold text-gray-900 dark:text-gray-100' : 'text-gray-500'}">
-														{sets.map((s) => s.p1).join(' ')}
-													</span>
-												{/if}
-											</div>
-											<!-- Pareja 2 -->
-											<div class="flex items-start gap-1.5 {cuadroExpandido ? 'px-3 py-2' : 'px-2 py-1.5'}">
-												{#if origen2}
-													<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded bg-gray-100 font-mono font-semibold text-gray-500 dark:bg-gray-700 dark:text-gray-400 {cuadroExpandido ? 'h-5 w-9 text-[11px]' : 'h-4 w-7 text-[9px]'}">
-														{origen2}
-													</span>
-												{/if}
-												<div class="min-w-0 flex-1">
-													{#each nombres2 as n, j (j)}
-														<p class="truncate leading-tight {cuadroExpandido ? 'text-[14px]' : 'text-[11px]'} {gana2 ? 'font-bold text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'}">
-															{n}
-														</p>
-													{/each}
-												</div>
-												{#if jugado}
-													<span class="mt-0.5 shrink-0 font-mono {cuadroExpandido ? 'text-[13px]' : 'text-[10px]'} {gana2 ? 'font-bold text-gray-900 dark:text-gray-100' : 'text-gray-500'}">
-														{sets.map((s) => s.p2).join(' ')}
-													</span>
-												{/if}
-											</div>
-											<!-- Conector saliente: linea horizontal hasta el
-											     medio del gap + linea vertical hasta la card de
-											     la ronda siguiente (calculada por su slot). -->
-											{#if idxRonda < rondas.length - 1}
-												{@const slotSig = Math.ceil(slot / 2)}
-												{@const slotsSig = slotsRonda / 2}
-												{@const topSig = (slotSig - 0.5) * (ALTURA_TOTAL / Math.max(slotsSig, 1))}
-												{@const dy = topSig - top}
-												<span
-													class="pointer-events-none absolute top-1/2 -right-6 h-px w-6 bg-gray-300 dark:bg-gray-600"
-												></span>
-												{#if dy > 0}
-													<span
-														class="pointer-events-none absolute top-1/2 -right-6 w-px bg-gray-300 dark:bg-gray-600"
-														style="height: {dy}px;"
-													></span>
-												{:else if dy < 0}
-													<span
-														class="pointer-events-none absolute -right-6 w-px bg-gray-300 dark:bg-gray-600"
-														style="top: calc(50% + {dy}px); height: {Math.abs(dy)}px;"
-													></span>
-												{/if}
-											{/if}
-										</button>
-									{/each}
-								</div>
-							</div>
-						{/each}
-					</div>
-				</div>
+			{:else if vistaCuadro === 'cuadro' && !cuadroModal}
+				{@render cuadroArmadoRender()}
+			{:else if vistaCuadro === 'cuadro' && cuadroModal}
+				<!-- Vivido en el modal overlay abajo. -->
 			{:else}
 
 			<!-- Tabs segmented control: una por cada ronda. -->
@@ -1521,6 +1371,20 @@
 			>
 				<i class="bi {cuadroExpandido ? 'bi-arrows-angle-contract' : 'bi-arrows-angle-expand'} text-base"></i>
 			</button>
+			<!-- Abrir en modal: util para cargar resultados aprovechando todo
+			     el viewport. Solo aplica al bracket armado (las refs son
+			     clickeables); en preview no tiene utilidad y lo escondemos. -->
+			{#if bracketArmado && !modoEdicion}
+				<button
+					type="button"
+					onclick={abrirCuadroModal}
+					aria-label="Abrir cuadro en pantalla completa"
+					title="Abrir cuadro en pantalla completa"
+					class="flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 transition hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+				>
+					<i class="bi bi-fullscreen text-base"></i>
+				</button>
+			{/if}
 		{/if}
 	</div>
 {/snippet}
@@ -1549,8 +1413,8 @@
 					{@const slotsRonda = SLOT_RONDA1 / Math.pow(2, idxRonda)}
 					{@const espacioPorSlot = ALTURA_TOTAL / Math.max(slotsRonda, 1)}
 					<div class="shrink-0" style="width: {ANCHO_COL}px;">
-						<div class="sticky top-0 z-10 mb-2 bg-white dark:bg-gray-900">
-							<p class="border-b border-gray-100 py-2 text-center font-semibold tracking-wider text-gray-500 uppercase dark:border-gray-800 dark:text-gray-400 {cuadroExpandido ? 'text-[13px]' : 'text-[11px]'}">
+						<div class="sticky top-0 z-10 mb-3 bg-white dark:bg-gray-900">
+							<p class="rounded-md border border-gray-200 bg-gray-50 py-2 text-center font-semibold tracking-wider text-gray-600 uppercase dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300 {cuadroExpandido ? 'text-[13px]' : 'text-[11px]'}">
 								{g.fase}
 							</p>
 						</div>
@@ -1571,7 +1435,7 @@
 								     tiene codigo corto enumerado: usamos "F" como etiqueta. -->
 								{@const etiquetaCodigo = p.codigo || (p.fase === 'Final' ? 'F' : '')}
 								<div
-									class="absolute rounded-md border border-dashed border-gray-300 bg-gray-50 text-left dark:border-gray-700 dark:bg-gray-800/40"
+									class="absolute rounded-md border-2 border-dashed border-gray-300 bg-gray-50 text-left shadow-sm dark:border-gray-600 dark:bg-gray-800/50"
 									style="top: {top}px; left: 0; right: 0; transform: translateY(-50%);"
 								>
 									{#if etiquetaCodigo}
@@ -1588,14 +1452,14 @@
 										></span>
 									{/if}
 									<!-- Pareja 1 -->
-									<div class="flex items-start gap-1.5 border-b border-gray-100 dark:border-gray-700 {cuadroExpandido ? 'px-3 py-2' : 'px-2 py-1.5'}">
+									<div class="flex items-start gap-1.5 border-b-2 border-gray-200 dark:border-gray-700 {cuadroExpandido ? 'px-3 py-2' : 'px-2 py-1.5'}">
 										{#if origen1}
 											<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded bg-gray-100 px-1 font-mono font-semibold text-gray-500 dark:bg-gray-700 dark:text-gray-400 {cuadroExpandido ? 'h-5 min-w-9 text-[11px]' : 'h-4 min-w-7 text-[9px]'}">
 												{origen1}
 											</span>
 										{/if}
 										<div class="min-w-0 flex-1">
-											<p class="truncate leading-tight text-gray-600 dark:text-gray-400 {cuadroExpandido ? 'text-[14px]' : 'text-[11px]'}" title={nombre1}>
+											<p class="truncate leading-tight text-gray-700 dark:text-gray-300 {cuadroExpandido ? 'text-[14px]' : 'text-[11px]'}" title={nombre1}>
 												{nombre1}
 											</p>
 										</div>
@@ -1608,7 +1472,7 @@
 											</span>
 										{/if}
 										<div class="min-w-0 flex-1">
-											<p class="truncate leading-tight text-gray-600 dark:text-gray-400 {cuadroExpandido ? 'text-[14px]' : 'text-[11px]'}" title={nombre2}>
+											<p class="truncate leading-tight text-gray-700 dark:text-gray-300 {cuadroExpandido ? 'text-[14px]' : 'text-[11px]'}" title={nombre2}>
 												{nombre2}
 											</p>
 										</div>
@@ -1649,6 +1513,137 @@
 <!-- Cuadro EDITABLE: igual aspecto que el preview pero con click handlers
      sobre cada ref PosicionZona/Inscripcion. Los conectores y refs
      derivadas (Ganador/Perdedor) se recalculan en vivo desde slotsEdit. -->
+<!-- Render del cuadro armado real (con resultados). Cards clickeables que
+     abren el BottomSheet de carga de resultado. Se usa inline en la vista
+     cuadro Y dentro del modal de pantalla completa. -->
+{#snippet cuadroArmadoRender()}
+	{@const SLOT_RONDA1 = Math.pow(2, rondas.length - 1)}
+	{@const ALTO_SLOT = cuadroExpandido ? 130 : 90}
+	{@const ALTURA_TOTAL = Math.max(cuadroExpandido ? 600 : 440, SLOT_RONDA1 * ALTO_SLOT)}
+	{@const ANCHO_COL = cuadroExpandido ? 340 : 220}
+	<!-- Panel con scroll propio. Cuando esta dentro del modal no aplica
+	     max-height ni full-bleed — el modal ya provee el viewport completo. -->
+	<div
+		class="overflow-auto bg-white p-4 dark:bg-gray-900 {cuadroModal ? 'h-full' : 'rounded-xl border border-gray-200 dark:border-gray-800'} {aplicarFullBleed ? 'w-[calc(100vw-20px)] ml-[calc(50%-50vw+10px)]' : ''}"
+		style={cuadroModal ? '' : 'max-height: 75vh;'}
+	>
+		<div class="flex gap-12">
+			{#each rondas as g, idxRonda (g.ronda)}
+				{@const slotsRonda = SLOT_RONDA1 / Math.pow(2, idxRonda)}
+				{@const espacioPorSlot = ALTURA_TOTAL / Math.max(slotsRonda, 1)}
+				<div class="shrink-0" style="width: {ANCHO_COL}px;">
+					<div class="sticky top-0 z-10 mb-3 bg-white dark:bg-gray-900">
+						<p class="rounded-md border border-gray-200 bg-gray-50 py-2 text-center font-semibold tracking-wider text-gray-600 uppercase dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300 {cuadroExpandido ? 'text-[13px]' : 'text-[11px]'}">
+							{g.fase}
+						</p>
+					</div>
+					<div class="relative" style="height: {ALTURA_TOTAL}px;">
+						{#each g.partidos as p, idxPartido (p.id)}
+							{@const slot = p.posicionEnRonda ?? idxPartido + 1}
+							{@const top = (slot - 0.5) * espacioPorSlot}
+							{@const tieneEntrada =
+								p.pareja1Ref.tipo === 'GanadorPartido' ||
+								p.pareja1Ref.tipo === 'PerdedorPartido' ||
+								p.pareja2Ref.tipo === 'GanadorPartido' ||
+								p.pareja2Ref.tipo === 'PerdedorPartido'}
+							{@const jugado = p.resultado !== null}
+							{@const gana1 = jugado && p.resultado!.ganadorEs === 1}
+							{@const gana2 = jugado && p.resultado!.ganadorEs === 2}
+							{@const nombres1 = nombresDeParejaRef(p.pareja1Ref)}
+							{@const nombres2 = nombresDeParejaRef(p.pareja2Ref)}
+							{@const origen1 = origenDeParejaRef(p.pareja1Ref)}
+							{@const origen2 = origenDeParejaRef(p.pareja2Ref)}
+							{@const sets = p.resultado?.sets ?? []}
+							{@const codigoArm = codigosArmado.get(p.id) ?? ''}
+							<button
+								type="button"
+								onclick={() => abrirResultado(p.id)}
+								class="absolute rounded-md border-2 border-gray-300 bg-white text-left shadow-sm transition hover:border-brand-500 hover:shadow-md dark:border-gray-600 dark:bg-gray-800 dark:hover:border-brand-400"
+								style="top: {top}px; left: 0; right: 0; transform: translateY(-50%);"
+							>
+								{#if codigoArm}
+									<span class="absolute top-1 right-1 rounded font-mono {cuadroExpandido ? 'text-[11px]' : 'text-[9px]'} font-semibold tracking-wide text-gray-400 dark:text-gray-500">
+										{codigoArm}
+									</span>
+								{/if}
+								{#if idxRonda > 0 && tieneEntrada}
+									<span
+										class="pointer-events-none absolute top-1/2 -left-6 h-px w-6 bg-gray-400 dark:bg-gray-500"
+									></span>
+								{/if}
+								<!-- Pareja 1: bg amber cuando es ganadora. -->
+								<div class="flex items-stretch border-b-2 border-gray-200 dark:border-gray-700 {gana1 ? 'rounded-t-md bg-amber-50 dark:bg-amber-900/20' : ''}">
+									<div class="flex flex-1 items-start gap-1.5 min-w-0 {cuadroExpandido ? 'px-3 py-2' : 'px-2 py-1.5'}">
+										{#if origen1}
+											<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded bg-gray-100 font-mono font-semibold text-gray-500 dark:bg-gray-700 dark:text-gray-400 {cuadroExpandido ? 'h-5 w-9 text-[11px]' : 'h-4 w-7 text-[9px]'}">
+												{origen1}
+											</span>
+										{/if}
+										<div class="min-w-0 flex-1">
+											{#each nombres1 as n, j (j)}
+												<p class="truncate leading-tight {cuadroExpandido ? 'text-[14px]' : 'text-[11px]'} {gana1 ? 'font-bold text-amber-900 dark:text-amber-200' : 'text-gray-700 dark:text-gray-300'}">
+													{n}
+												</p>
+											{/each}
+										</div>
+									</div>
+									{#if jugado}
+										<div class="flex shrink-0 items-center justify-center rounded-tr-md {gana1 ? 'bg-gray-900 dark:bg-gray-700' : 'bg-gray-200 dark:bg-gray-700/50'} font-mono font-bold {cuadroExpandido ? 'min-w-9 px-2 text-[13px]' : 'min-w-7 px-1.5 text-[11px]'} {gana1 ? 'text-white' : 'text-gray-500 dark:text-gray-500'}">
+											{sets.map((s) => s.p1).join(' ')}
+										</div>
+									{/if}
+								</div>
+								<!-- Pareja 2 -->
+								<div class="flex items-stretch {gana2 ? 'rounded-b-md bg-amber-50 dark:bg-amber-900/20' : ''}">
+									<div class="flex flex-1 items-start gap-1.5 min-w-0 {cuadroExpandido ? 'px-3 py-2' : 'px-2 py-1.5'}">
+										{#if origen2}
+											<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded bg-gray-100 font-mono font-semibold text-gray-500 dark:bg-gray-700 dark:text-gray-400 {cuadroExpandido ? 'h-5 w-9 text-[11px]' : 'h-4 w-7 text-[9px]'}">
+												{origen2}
+											</span>
+										{/if}
+										<div class="min-w-0 flex-1">
+											{#each nombres2 as n, j (j)}
+												<p class="truncate leading-tight {cuadroExpandido ? 'text-[14px]' : 'text-[11px]'} {gana2 ? 'font-bold text-amber-900 dark:text-amber-200' : 'text-gray-700 dark:text-gray-300'}">
+													{n}
+												</p>
+											{/each}
+										</div>
+									</div>
+									{#if jugado}
+										<div class="flex shrink-0 items-center justify-center rounded-br-md {gana2 ? 'bg-gray-900 dark:bg-gray-700' : 'bg-gray-200 dark:bg-gray-700/50'} font-mono font-bold {cuadroExpandido ? 'min-w-9 px-2 text-[13px]' : 'min-w-7 px-1.5 text-[11px]'} {gana2 ? 'text-white' : 'text-gray-500 dark:text-gray-500'}">
+											{sets.map((s) => s.p2).join(' ')}
+										</div>
+									{/if}
+								</div>
+								{#if idxRonda < rondas.length - 1}
+									{@const slotSig = Math.ceil(slot / 2)}
+									{@const slotsSig = slotsRonda / 2}
+									{@const topSig = (slotSig - 0.5) * (ALTURA_TOTAL / Math.max(slotsSig, 1))}
+									{@const dy = topSig - top}
+									<span
+										class="pointer-events-none absolute top-1/2 -right-6 h-px w-6 bg-gray-300 dark:bg-gray-600"
+									></span>
+									{#if dy > 0}
+										<span
+											class="pointer-events-none absolute top-1/2 -right-6 w-px bg-gray-300 dark:bg-gray-600"
+											style="height: {dy}px;"
+										></span>
+									{:else if dy < 0}
+										<span
+											class="pointer-events-none absolute -right-6 w-px bg-gray-300 dark:bg-gray-600"
+											style="top: calc(50% + {dy}px); height: {Math.abs(dy)}px;"
+										></span>
+									{/if}
+								{/if}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/each}
+		</div>
+	</div>
+{/snippet}
+
 {#snippet cuadroEditarRender()}
 	{#if bracketEditando && rondasEditando.length > 0}
 		{@const SLOT_RONDA1 = Math.pow(2, rondasEditando.length - 1)}
@@ -1664,8 +1659,8 @@
 					{@const slotsRonda = SLOT_RONDA1 / Math.pow(2, idxRonda)}
 					{@const espacioPorSlot = ALTURA_TOTAL / Math.max(slotsRonda, 1)}
 					<div class="shrink-0" style="width: {ANCHO_COL}px;">
-						<div class="sticky top-0 z-10 mb-2 bg-white dark:bg-gray-900">
-							<p class="border-b border-gray-100 py-2 text-center font-semibold tracking-wider text-gray-500 uppercase dark:border-gray-800 dark:text-gray-400 {cuadroExpandido ? 'text-[13px]' : 'text-[11px]'}">
+						<div class="sticky top-0 z-10 mb-3 bg-white dark:bg-gray-900">
+							<p class="rounded-md border border-gray-200 bg-gray-50 py-2 text-center font-semibold tracking-wider text-gray-600 uppercase dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300 {cuadroExpandido ? 'text-[13px]' : 'text-[11px]'}">
 								{g.fase}
 							</p>
 						</div>
@@ -1696,7 +1691,7 @@
 										: ''}
 									{@const ambosVacios = refA === null && refB === null}
 									<div
-										class="absolute rounded-md border text-left transition {sel1 || sel2 ? 'border-brand-500 bg-white shadow-md ring-2 ring-brand-200 dark:border-brand-400 dark:bg-gray-800 dark:ring-brand-900/50' : ambosVacios ? 'border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30' : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'}"
+										class="absolute rounded-md border-2 text-left shadow-sm transition {sel1 || sel2 ? 'border-brand-500 shadow-md ring-2 ring-brand-200 dark:border-brand-400 dark:ring-brand-900/50' : ambosVacios ? 'border-dashed border-gray-300 dark:border-gray-700' : 'border-gray-300 dark:border-gray-600'}"
 										style="top: {top}px; left: 0; right: 0; transform: translateY(-50%);"
 									>
 										{#if codigoPartido}
@@ -1709,7 +1704,7 @@
 											type="button"
 											title={refA ? nombre1 : 'Slot vacío — tocá para seleccionarlo y luego elegí otra pareja para moverla aquí'}
 											onclick={() => clickSlotEdit(slotA)}
-											class="flex w-full items-start gap-1.5 border-b border-gray-100 text-left transition dark:border-gray-700 {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'} {sel1 ? 'bg-brand-50 dark:bg-brand-900/30' : refA ? 'hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer' : 'cursor-pointer hover:bg-brand-50/50 dark:hover:bg-brand-900/20'}"
+											class="flex w-full cursor-pointer items-start gap-1.5 rounded-t-md border-b-2 border-gray-200 text-left transition dark:border-gray-700 {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'} {sel1 ? 'bg-brand-100 dark:bg-brand-900/40' : refA ? 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/15 dark:hover:bg-amber-900/30' : 'bg-gray-100 hover:bg-amber-50 dark:bg-gray-800/60 dark:hover:bg-amber-900/15'}"
 										>
 											<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded px-1 font-mono font-semibold {sel1 ? 'bg-brand-200 text-brand-900 dark:bg-brand-700 dark:text-brand-100' : refA ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' : 'border border-dashed border-gray-300 bg-transparent text-gray-300 dark:border-gray-600 dark:text-gray-600'} {cuadroExpandido ? 'h-5 min-w-9 text-[11px]' : 'h-4 min-w-7 text-[9px]'}">
 												{origen1}
@@ -1728,7 +1723,7 @@
 											type="button"
 											title={refB ? nombre2 : 'Slot vacío — tocá para seleccionarlo y luego elegí otra pareja para moverla aquí'}
 											onclick={() => clickSlotEdit(slotB)}
-											class="flex w-full items-start gap-1.5 text-left transition {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'} {sel2 ? 'bg-brand-50 dark:bg-brand-900/30' : refB ? 'hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer' : 'cursor-pointer hover:bg-brand-50/50 dark:hover:bg-brand-900/20'}"
+											class="flex w-full cursor-pointer items-start gap-1.5 rounded-b-md text-left transition {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'} {sel2 ? 'bg-brand-100 dark:bg-brand-900/40' : refB ? 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/15 dark:hover:bg-amber-900/30' : 'bg-gray-100 hover:bg-amber-50 dark:bg-gray-800/60 dark:hover:bg-amber-900/15'}"
 										>
 											<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded px-1 font-mono font-semibold {sel2 ? 'bg-brand-200 text-brand-900 dark:bg-brand-700 dark:text-brand-100' : refB ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' : 'border border-dashed border-gray-300 bg-transparent text-gray-300 dark:border-gray-600 dark:text-gray-600'} {cuadroExpandido ? 'h-5 min-w-9 text-[11px]' : 'h-4 min-w-7 text-[9px]'}">
 												{origen2}
@@ -1812,7 +1807,7 @@
 										disabled={!editable1}
 										title={editable1 ? nombre1 : `${nombre1} (no editable: depende del resultado del partido previo)`}
 										onclick={() => clickRefEdit(p.pareja1Ref)}
-										class="flex w-full items-start gap-1.5 border-b border-gray-100 text-left transition dark:border-gray-700 {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'} {sel1 ? 'bg-brand-50 dark:bg-brand-900/30' : editable1 ? 'hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer' : 'cursor-not-allowed bg-gray-50 dark:bg-gray-900/40'}"
+										class="flex w-full items-start gap-1.5 rounded-t-md border-b-2 border-gray-200 text-left transition dark:border-gray-700 {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'} {sel1 ? 'bg-brand-100 dark:bg-brand-900/40' : editable1 ? 'bg-amber-50 hover:bg-amber-100 cursor-pointer dark:bg-amber-900/15 dark:hover:bg-amber-900/30' : 'cursor-not-allowed bg-gray-100 dark:bg-gray-800/60'}"
 									>
 										<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded px-1 font-mono font-semibold {sel1 ? 'bg-brand-200 text-brand-900 dark:bg-brand-700 dark:text-brand-100' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'} {cuadroExpandido ? 'h-5 min-w-9 text-[11px]' : 'h-4 min-w-7 text-[9px]'}">
 											{origen1}
@@ -1834,7 +1829,7 @@
 										disabled={!editable2}
 										title={editable2 ? nombre2 : `${nombre2} (no editable: depende del resultado del partido previo)`}
 										onclick={() => clickRefEdit(p.pareja2Ref)}
-										class="flex w-full items-start gap-1.5 text-left transition {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'} {sel2 ? 'bg-brand-50 dark:bg-brand-900/30' : editable2 ? 'hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer' : 'cursor-not-allowed bg-gray-50 dark:bg-gray-900/40'}"
+										class="flex w-full items-start gap-1.5 rounded-b-md text-left transition {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'} {sel2 ? 'bg-brand-100 dark:bg-brand-900/40' : editable2 ? 'bg-amber-50 hover:bg-amber-100 cursor-pointer dark:bg-amber-900/15 dark:hover:bg-amber-900/30' : 'cursor-not-allowed bg-gray-100 dark:bg-gray-800/60'}"
 									>
 										<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded px-1 font-mono font-semibold {sel2 ? 'bg-brand-200 text-brand-900 dark:bg-brand-700 dark:text-brand-100' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'} {cuadroExpandido ? 'h-5 min-w-9 text-[11px]' : 'h-4 min-w-7 text-[9px]'}">
 											{origen2}
@@ -1899,12 +1894,12 @@
 									{@const nombreF1 = nombreDeRefEditando(refRA)}
 									{@const nombreF2 = nombreDeRefEditando(refRB)}
 									<div
-										class="absolute rounded-md border border-dashed border-gray-300 dark:border-gray-700 {ambasNull ? 'bg-gray-50/30 dark:bg-gray-800/20' : 'bg-white/60 dark:bg-gray-800/40'}"
+										class="absolute rounded-md border-2 border-dashed border-gray-300 dark:border-gray-600"
 										style="top: {topFantasma}px; left: 0; right: 0; transform: translateY(-50%);"
 									>
 										<!-- Sub-slot A (visual, no editable). -->
 										<div
-											class="flex w-full items-start gap-1.5 border-b border-gray-100 dark:border-gray-700 {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'}"
+											class="flex w-full items-start gap-1.5 rounded-t-md border-b-2 border-gray-200 dark:border-gray-700 {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'} {refRA ? 'bg-amber-50/70 dark:bg-amber-900/15' : 'bg-gray-100 dark:bg-gray-800/60'}"
 											title={refRA ? `${nombreF1} (sube directo por bye)` : 'Sin pareja en este slot'}
 										>
 											<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded px-1 font-mono font-semibold {refRA ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' : 'border border-dashed border-gray-300 bg-transparent text-gray-300 dark:border-gray-600 dark:text-gray-600'} {cuadroExpandido ? 'h-5 min-w-9 text-[11px]' : 'h-4 min-w-7 text-[9px]'}">
@@ -1921,7 +1916,7 @@
 										</div>
 										<!-- Sub-slot B. -->
 										<div
-											class="flex w-full items-start gap-1.5 {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'}"
+											class="flex w-full items-start gap-1.5 rounded-b-md {cuadroExpandido ? 'px-3 py-2.5' : 'px-2 py-2'} {refRB ? 'bg-amber-50/70 dark:bg-amber-900/15' : 'bg-gray-100 dark:bg-gray-800/60'}"
 											title={refRB ? `${nombreF2} (sube directo por bye)` : 'Sin pareja en este slot'}
 										>
 											<span class="mt-0.5 inline-flex shrink-0 items-center justify-center rounded px-1 font-mono font-semibold {refRB ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' : 'border border-dashed border-gray-300 bg-transparent text-gray-300 dark:border-gray-600 dark:text-gray-600'} {cuadroExpandido ? 'h-5 min-w-9 text-[11px]' : 'h-4 min-w-7 text-[9px]'}">
@@ -1996,14 +1991,7 @@
 			<div class="flex flex-wrap gap-2 sm:shrink-0">
 				<button
 					type="button"
-					onclick={() => {
-						if (cuadroModal) {
-							cuadroModal = false;
-						} else {
-							cuadroExpandido = true;
-							cuadroModal = true;
-						}
-					}}
+					onclick={() => (cuadroModal ? cerrarCuadroModal() : abrirCuadroModal())}
 					title={cuadroModal ? 'Salir de pantalla completa' : 'Editar en pantalla completa'}
 					class="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
 				>
@@ -2049,7 +2037,7 @@
 	onkeydown={(e) => {
 		if (e.key === 'Escape' && cuadroModal) {
 			e.preventDefault();
-			cuadroModal = false;
+			cerrarCuadroModal();
 		}
 	}}
 />
@@ -2065,10 +2053,10 @@
 		aria-modal="true"
 		aria-label="Editor de cruces en pantalla completa"
 		onclick={(e) => {
-			if (e.target === e.currentTarget) cuadroModal = false;
+			if (e.target === e.currentTarget) cerrarCuadroModal();
 		}}
 		onkeydown={(e) => {
-			if (e.key === 'Escape') cuadroModal = false;
+			if (e.key === 'Escape') cerrarCuadroModal();
 		}}
 		tabindex="-1"
 	>
@@ -2091,7 +2079,7 @@
 				</div>
 				<button
 					type="button"
-					onclick={() => (cuadroModal = false)}
+					onclick={cerrarCuadroModal}
 					aria-label="Salir de pantalla completa"
 					title="Salir (ESC)"
 					class="inline-flex items-center justify-center rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
@@ -2107,6 +2095,54 @@
 			<!-- Footer: misma editorBarra con su info de seleccion y acciones. -->
 			<div class="shrink-0 border-t border-gray-200 p-3 dark:border-gray-700">
 				{@render editorBarra()}
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Modal full-screen del cuadro armado (vista, no edicion). Click en una
+     card del cuadro adentro abre el BottomSheet de carga de resultado por
+     encima del modal (el BottomSheet vive a nivel superior). -->
+{#if cuadroModal && !modoEdicion && bracketArmado}
+	<div
+		class="fixed inset-0 z-50 flex flex-col bg-black/60"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Cuadro final en pantalla completa"
+		onclick={(e) => {
+			if (e.target === e.currentTarget) cerrarCuadroModal();
+		}}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') cerrarCuadroModal();
+		}}
+		tabindex="-1"
+	>
+		<div
+			class="m-2 flex flex-1 flex-col overflow-hidden rounded-xl bg-white shadow-2xl dark:bg-gray-900 sm:m-4"
+			onclick={(e) => e.stopPropagation()}
+			role="presentation"
+		>
+			<header class="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+				<div>
+					<h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+						Cuadro Final — pantalla completa
+					</h2>
+					<p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+						Tocá una card para cargar o editar su resultado.
+					</p>
+				</div>
+				<button
+					type="button"
+					onclick={cerrarCuadroModal}
+					aria-label="Salir de pantalla completa"
+					title="Salir (ESC)"
+					class="inline-flex items-center justify-center rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+				>
+					<i class="bi bi-x-lg text-lg"></i>
+				</button>
+			</header>
+			<div class="flex-1 overflow-auto p-3 sm:p-4">
+				{@render cuadroArmadoRender()}
 			</div>
 		</div>
 	</div>

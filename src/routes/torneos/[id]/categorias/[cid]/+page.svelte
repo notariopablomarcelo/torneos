@@ -236,6 +236,40 @@
 					</div>
 				{/if}
 			</div>
+			<!-- Tira de Inscripciones EMBEBIDA en el card de info. Mantiene el
+			     look del drill-down (icono + titulo + sub + chevron) pero como
+			     fila dentro del card existente, antes del footer de acciones. -->
+			<a
+				href={`/torneos/${tid}/categorias/${cid}/inscripciones`}
+				class="flex w-full items-center gap-4 border-t border-gray-100 px-4 py-3 transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50"
+			>
+				<span
+					class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
+				>
+					<i class="bi bi-people text-lg"></i>
+				</span>
+				<div class="min-w-0 flex-1">
+					<p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Inscripciones</p>
+					<p class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+						<span>{subInscripciones}</span>
+						{#if inscripcionesCompletas}
+							<span
+								title="Cupo completo"
+								aria-label="Cupo completo"
+								class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+							>
+								<i class="bi bi-check-circle-fill text-[9px]"></i>
+								Completo
+							</span>
+						{:else if categoria.cupos !== null && inscripciones.length > 0}
+							<span class="text-[10px] text-gray-400 dark:text-gray-500">
+								/ {categoria.cupos}
+							</span>
+						{/if}
+					</p>
+				</div>
+				<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>
+			</a>
 			<footer
 				class="flex items-center justify-end gap-1 border-t border-gray-100 px-3 py-2 dark:border-gray-800"
 			>
@@ -259,41 +293,9 @@
 			</footer>
 		</section>
 
-		<!-- 2 cards de drill-down. -->
+		<!-- Drill-down de Zonas y Cuadro Final (Inscripciones ahora vive
+		     dentro del card de info de arriba). -->
 		<ul class="space-y-3">
-			<li>
-				<a
-					href={`/torneos/${tid}/categorias/${cid}/inscripciones`}
-					class="flex w-full items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
-				>
-					<span
-						class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
-					>
-						<i class="bi bi-people text-xl"></i>
-					</span>
-					<div class="min-w-0 flex-1">
-						<p class="text-base font-semibold text-gray-900 dark:text-gray-100">Inscripciones</p>
-						<p class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-							<span>{subInscripciones}</span>
-							{#if inscripcionesCompletas}
-								<span
-									title="Cupo completo"
-									aria-label="Cupo completo"
-									class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-								>
-									<i class="bi bi-check-circle-fill text-[9px]"></i>
-									Completo
-								</span>
-							{:else if categoria.cupos !== null && inscripciones.length > 0}
-								<span class="text-[10px] text-gray-400 dark:text-gray-500">
-									/ {categoria.cupos}
-								</span>
-							{/if}
-						</p>
-					</div>
-					<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>
-				</a>
-			</li>
 			<li>
 				<a
 					href={`/torneos/${tid}/categorias/${cid}/zonas`}
