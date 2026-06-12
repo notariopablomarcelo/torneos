@@ -5,16 +5,18 @@
 	import InscripcionForm from '$lib/components/InscripcionForm.svelte';
 	import InscripcionNombres from '$lib/components/InscripcionNombres.svelte';
 	import { suscribirTorneo } from '$lib/services/torneos';
+	import { rangoFechasInclusivo } from '$lib/dates';
 	import { obtenerCategoria } from '$lib/services/categorias';
-	import { suscribirJugadores } from '$lib/services/jugadores';
+	import { crearJugador, suscribirJugadores } from '$lib/services/jugadores';
 	import {
 		suscribirInscripciones,
-		crearInscripcion,
-		actualizarInscripcion,
-		eliminarInscripcion
+		crearInscripcion
 	} from '$lib/services/inscripciones';
 	import { AMBIENTE } from '$lib/firebase';
-	import { generarInscripcionInput } from '$lib/dev/factories';
+	import {
+		generarInscripcionInput,
+		generarJugadorInput
+	} from '$lib/dev/factories';
 	import {
 		nombreCategoria,
 		obtenerCantidadJugadores,
@@ -28,6 +30,8 @@
 		type Inscripcion,
 		type InscripcionInput
 	} from '$lib/types/inscripcion';
+	// El edit de cada inscripcion vive en su propia pantalla
+	// (/inscripciones/[iid]); la lista solo navega hacia alla.
 	import type { Jugador } from '$lib/types/jugador';
 
 	const tid = $derived(page.params.id as string);
@@ -44,14 +48,9 @@
 	const cargando = $derived(cargandoCategoria || cargandoJugadores);
 
 	let sheetNueva = $state(false);
-	let editandoId = $state<string | null>(null);
 
 	const cantidad = $derived(categoria ? obtenerCantidadJugadores(categoria) : 2);
 	const jugadoresPorId = $derived(new Map(jugadores.map((j) => [j.id, j])));
-
-	const inscEditando = $derived(
-		editandoId ? (inscripciones.find((i) => i.id === editandoId) ?? null) : null
-	);
 
 	$effect(() => {
 		const t = tid;
@@ -63,7 +62,6 @@
 		categoria = null;
 		inscripciones = [];
 		sheetNueva = false;
-		editandoId = null;
 
 		let cancelado = false;
 		const unsubT = suscribirTorneo(t, (val) => {
@@ -97,37 +95,19 @@
 		};
 	});
 
-	$effect(() => {
-		if (editandoId && !inscEditando) {
-			editandoId = null;
-		}
-	});
-
 	async function handleCrear(data: InscripcionInput) {
 		await crearInscripcion(tid, cid, data);
 		sheetNueva = false;
 	}
 
-	async function handleActualizar(data: InscripcionInput) {
-		if (!editandoId) return;
-		await actualizarInscripcion(tid, cid, editandoId, data);
-		editandoId = null;
-	}
-
-	async function handleEliminar(insc: Inscripcion) {
-		const nombre = nombreInscripcion(insc, jugadoresPorId);
-		const ok = confirm(`¿Eliminar la ${sustantivoInscripcion(cantidad)} "${nombre}"?`);
-		if (!ok) return;
-		await eliminarInscripcion(tid, cid, insc.id);
-	}
-
 	const ocupadosGlobal = $derived(inscripciones.flatMap((i) => i.jugadores));
 	const excluirNueva = $derived(ocupadosGlobal);
-	const excluirEdicion = $derived.by(() => {
-		if (!inscEditando) return ocupadosGlobal;
-		const propios = new Set(inscEditando.jugadores);
-		return ocupadosGlobal.filter((id) => !propios.has(id));
-	});
+
+	// Lista de fechas del torneo (YYYY-MM-DD) para la UI de bloqueos por
+	// jugador del form de creacion. Vacio mientras carga.
+	const fechasTorneo = $derived(
+		torneo ? rangoFechasInclusivo(torneo.fechaInicio, torneo.fechaFin) : []
+	);
 	const cantidadDisponiblesNueva = $derived(jugadores.length - ocupadosGlobal.length);
 
 	const rankingsExistentes = $derived(
@@ -157,6 +137,78 @@
 				}
 			: undefined
 	);
+
+	// =====
+	// Test: autogenerar todas las parejas necesarias para llenar la categoria.
+	// Crea jugadores nuevos si la base no tiene suficientes (con dedupe por
+	// nombreCompleto). Util en desarrollo para probar el flujo entero sin
+	// cargar 30 jugadores a mano.
+	// =====
+
+	const TARGET_DEFAULT_SIN_CUPOS = 8;
+	let generandoTodo = $state(false);
+
+	const targetInscripciones = $derived(
+		categoria?.cupos ?? TARGET_DEFAULT_SIN_CUPOS
+	);
+	const parejasFaltantes = $derived(
+		Math.max(0, targetInscripciones - inscripciones.length)
+	);
+
+	async function handleTestLlenar() {
+		if (!categoria || parejasFaltantes === 0) return;
+		generandoTodo = true;
+		try {
+			// Trabajo en memoria contra una copia mutable de las ids de jugadores
+			// disponibles. Asi no dependo de que `jugadores` (suscripcion
+			// realtime) se actualice entre awaits.
+			const ocupadosSet = new Set(ocupadosGlobal);
+			const disponiblesIds: string[] = jugadores
+				.filter((j) => !ocupadosSet.has(j.id))
+				.map((j) => j.id);
+
+			const necesarios = parejasFaltantes * cantidad;
+			const aCrear = Math.max(0, necesarios - disponiblesIds.length);
+
+			// 1. Crear jugadores nuevos (si hace falta) con nombres unicos.
+			if (aCrear > 0) {
+				const nombresUsados = new Set(jugadores.map((j) => j.nombreCompleto));
+				for (let i = 0; i < aCrear; i += 1) {
+					const datos = generarJugadorInput(nombresUsados);
+					nombresUsados.add(datos.nombreCompleto);
+					const nuevoId = await crearJugador(datos);
+					disponiblesIds.push(nuevoId);
+				}
+			}
+
+			// 2. Crear las parejas: cada una toma `cantidad` jugadores random
+			//    de los disponibles. Ranking incremental al final del orden.
+			let rankingProx =
+				Math.max(0, ...inscripciones.map((i) => i.ranking ?? 0)) + 1;
+			for (let i = 0; i < parejasFaltantes; i += 1) {
+				const seleccion: string[] = [];
+				for (let k = 0; k < cantidad; k += 1) {
+					const idx = Math.floor(Math.random() * disponiblesIds.length);
+					const [id] = disponiblesIds.splice(idx, 1);
+					if (id) seleccion.push(id);
+				}
+				if (seleccion.length !== cantidad) break; // safeguard
+				await crearInscripcion(tid, cid, {
+					jugadores: seleccion,
+					ranking: rankingProx
+				});
+				rankingProx += 1;
+			}
+		} catch (err) {
+			alert(err instanceof Error ? err.message : 'Error al llenar inscripciones');
+		} finally {
+			generandoTodo = false;
+		}
+	}
+
+	const mostrarBotonTest = $derived(
+		AMBIENTE !== 'prod' && parejasFaltantes > 0
+	);
 </script>
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
@@ -184,17 +236,35 @@
 			]}
 		/>
 
-		<header class="mb-4 flex items-center justify-between">
+		<header class="mb-4 flex items-center justify-between gap-2">
 			<h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">Inscripciones</h1>
-			<button
-				type="button"
-				onclick={() => (sheetNueva = true)}
-				disabled={cantidadDisponiblesNueva < cantidad}
-				class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<i class="bi bi-plus-lg"></i>
-				Nueva {sustantivoInscripcion(cantidad)}
-			</button>
+			<div class="flex items-center gap-2">
+				{#if mostrarBotonTest}
+					<button
+						type="button"
+						onclick={handleTestLlenar}
+						disabled={generandoTodo}
+						title="Llenar {parejasFaltantes} {parejasFaltantes === 1 ? 'pareja' : 'parejas'} con datos al azar"
+						class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-400 px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800"
+					>
+						{#if generandoTodo}
+							<i class="bi bi-arrow-clockwise animate-spin"></i>
+						{:else}
+							<i class="bi bi-magic"></i>
+						{/if}
+						<span>Test ×{parejasFaltantes}</span>
+					</button>
+				{/if}
+				<button
+					type="button"
+					onclick={() => (sheetNueva = true)}
+					disabled={cantidadDisponiblesNueva < cantidad}
+					class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					<i class="bi bi-plus-lg"></i>
+					Nueva {sustantivoInscripcion(cantidad)}
+				</button>
+			</div>
 		</header>
 
 		{#if jugadores.length < cantidad}
@@ -234,9 +304,8 @@
 			<ul class="space-y-1.5">
 				{#each inscripcionesOrdenadas as i (i.id)}
 					<li>
-						<button
-							type="button"
-							onclick={() => (editandoId = i.id)}
+						<a
+							href={`/torneos/${tid}/categorias/${cid}/inscripciones/${i.id}`}
 							aria-label="Editar {nombreInscripcion(i, jugadoresPorId)}"
 							class="flex w-full items-start gap-3 rounded-[10px] border border-gray-200 bg-white p-3 text-left hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 dark:hover:bg-gray-800"
 						>
@@ -250,10 +319,13 @@
 								{i.ranking ?? '–'}
 							</span>
 							<div class="min-w-0 flex-1">
-								<InscripcionNombres nombres={nombresJugadores(i, jugadoresPorId)} />
+								<InscripcionNombres
+									nombres={nombresJugadores(i, jugadoresPorId)}
+									tieneBloqueos={(i.bloqueosJugadores?.length ?? 0) > 0}
+								/>
 							</div>
 							<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>
-						</button>
+						</a>
 					</li>
 				{/each}
 			</ul>
@@ -271,6 +343,7 @@
 		cantidadJugadores={cantidad}
 		{jugadores}
 		excluirGlobal={excluirNueva}
+		{fechasTorneo}
 		submitLabel="Crear"
 		onSubmit={handleCrear}
 		onCancel={() => (sheetNueva = false)}
@@ -278,26 +351,3 @@
 	/>
 </BottomSheet>
 
-<BottomSheet
-	open={editandoId !== null && inscEditando !== null}
-	onClose={() => (editandoId = null)}
-	title={`Editar ${sustantivoInscripcion(cantidad)}`}
->
-	{#if inscEditando}
-		{#key editandoId}
-			<InscripcionForm
-				initial={{
-					jugadores: inscEditando.jugadores,
-					ranking: inscEditando.ranking
-				}}
-				cantidadJugadores={cantidad}
-				{jugadores}
-				excluirGlobal={excluirEdicion}
-				submitLabel="Guardar"
-				onSubmit={handleActualizar}
-				onCancel={() => (editandoId = null)}
-				onEliminar={() => handleEliminar(inscEditando!)}
-			/>
-		{/key}
-	{/if}
-</BottomSheet>

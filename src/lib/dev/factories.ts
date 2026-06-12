@@ -7,6 +7,7 @@ import {
 import type { Jugador, JugadorInput } from '$lib/types/jugador';
 import type { InscripcionInput } from '$lib/types/inscripcion';
 import type { ResultadoPartido, SetResultado } from '$lib/types/armado';
+import type { CanchaInput, SedeInput } from '$lib/types/sede';
 
 // Factories de datos ficticios para el boton "Test" de los formularios.
 // Cada llamada devuelve datos nuevos (sin determinismo). A medida que sumemos
@@ -84,50 +85,107 @@ export function generarCategoriaInput(): CategoriaInput {
 	};
 }
 
-const NOMBRES = [
-	'Carlos',
-	'Juan',
-	'Diego',
-	'Martín',
-	'Pablo',
-	'Fernando',
-	'Ricardo',
-	'Roberto',
-	'Sebastián',
-	'Alejandro',
-	'Federico',
-	'Gonzalo',
-	'María',
-	'Ana',
-	'Laura',
-	'Sofía',
-	'Lucía',
-	'Carla',
-	'Florencia',
-	'Verónica',
-	'Camila',
-	'Romina'
-];
-
-const APELLIDOS = [
-	'González',
-	'Rodríguez',
-	'Pereira',
-	'Martínez',
-	'López',
-	'García',
-	'Fernández',
-	'Sánchez',
-	'Ramírez',
-	'Torres',
-	'Benítez',
-	'Acosta',
-	'Vega',
-	'Cáceres',
-	'Ramos',
-	'Gómez',
-	'Ortiz',
-	'Romero'
+// Pares fijos de nombre + apellido. Cada par es unico, asi se evitan
+// duplicados al generar jugadores random. La factory pide al caller que
+// pase los `nombreCompleto` ya existentes para excluirlos del sorteo.
+const NOMBRES_COMPLETOS: { firstName: string; lastName: string }[] = [
+	{ firstName: 'Juan', lastName: 'Gonzalez' },
+	{ firstName: 'Maria', lastName: 'Rodriguez' },
+	{ firstName: 'Carlos', lastName: 'Lopez' },
+	{ firstName: 'Ana', lastName: 'Martinez' },
+	{ firstName: 'Luis', lastName: 'Fernandez' },
+	{ firstName: 'Laura', lastName: 'Perez' },
+	{ firstName: 'Jorge', lastName: 'Gomez' },
+	{ firstName: 'Sofia', lastName: 'Diaz' },
+	{ firstName: 'Miguel', lastName: 'Sanchez' },
+	{ firstName: 'Valeria', lastName: 'Romero' },
+	{ firstName: 'Diego', lastName: 'Torres' },
+	{ firstName: 'Camila', lastName: 'Ruiz' },
+	{ firstName: 'Andres', lastName: 'Vargas' },
+	{ firstName: 'Daniela', lastName: 'Castro' },
+	{ firstName: 'Fernando', lastName: 'Morales' },
+	{ firstName: 'Paula', lastName: 'Ortiz' },
+	{ firstName: 'Ricardo', lastName: 'Silva' },
+	{ firstName: 'Gabriela', lastName: 'Rojas' },
+	{ firstName: 'Martin', lastName: 'Herrera' },
+	{ firstName: 'Natalia', lastName: 'Mendoza' },
+	{ firstName: 'Alejandro', lastName: 'Jimenez' },
+	{ firstName: 'Carolina', lastName: 'Navarro' },
+	{ firstName: 'Eduardo', lastName: 'Flores' },
+	{ firstName: 'Lucia', lastName: 'Aguilar' },
+	{ firstName: 'Roberto', lastName: 'Medina' },
+	{ firstName: 'Florencia', lastName: 'Delgado' },
+	{ firstName: 'Sergio', lastName: 'Vega' },
+	{ firstName: 'Julieta', lastName: 'Ibarra' },
+	{ firstName: 'Hector', lastName: 'Campos' },
+	{ firstName: 'Elena', lastName: 'Fuentes' },
+	{ firstName: 'Raul', lastName: 'Guerrero' },
+	{ firstName: 'Patricia', lastName: 'Cabrera' },
+	{ firstName: 'Oscar', lastName: 'Ramirez' },
+	{ firstName: 'Veronica', lastName: 'Molina' },
+	{ firstName: 'Alberto', lastName: 'Acosta' },
+	{ firstName: 'Monica', lastName: 'Benitez' },
+	{ firstName: 'Ruben', lastName: 'Paredes' },
+	{ firstName: 'Cecilia', lastName: 'Cardozo' },
+	{ firstName: 'Guillermo', lastName: 'Ayala' },
+	{ firstName: 'Lorena', lastName: 'Coronel' },
+	{ firstName: 'Nicolas', lastName: 'Caballero' },
+	{ firstName: 'Andrea', lastName: 'Valdez' },
+	{ firstName: 'Cristian', lastName: 'Escobar' },
+	{ firstName: 'Mariana', lastName: 'Salinas' },
+	{ firstName: 'Sebastian', lastName: 'Meza' },
+	{ firstName: 'Victoria', lastName: 'Franco' },
+	{ firstName: 'Emiliano', lastName: 'Alvarez' },
+	{ firstName: 'Noelia', lastName: 'Godoy' },
+	{ firstName: 'Matias', lastName: 'Maidana' },
+	{ firstName: 'Rocio', lastName: 'Villalba' },
+	{ firstName: 'Kevin', lastName: 'Arce' },
+	{ firstName: 'Tatiana', lastName: 'Leiva' },
+	{ firstName: 'Bruno', lastName: 'Nuñez' },
+	{ firstName: 'Melisa', lastName: 'Baez' },
+	{ firstName: 'Joaquin', lastName: 'Caceres' },
+	{ firstName: 'Agustina', lastName: 'Ferreira' },
+	{ firstName: 'Facundo', lastName: 'Cantero' },
+	{ firstName: 'Antonella', lastName: 'Insfran' },
+	{ firstName: 'Tomas', lastName: 'Espinola' },
+	{ firstName: 'Micaela', lastName: 'Velazquez' },
+	{ firstName: 'Maximiliano', lastName: 'Peralta' },
+	{ firstName: 'Bianca', lastName: 'Almiron' },
+	{ firstName: 'Leonardo', lastName: 'Zarate' },
+	{ firstName: 'Ariana', lastName: 'Galeano' },
+	{ firstName: 'Franco', lastName: 'Figueredo' },
+	{ firstName: 'Milagros', lastName: 'Sosa' },
+	{ firstName: 'Gabriel', lastName: 'Prieto' },
+	{ firstName: 'Karen', lastName: 'Centurion' },
+	{ firstName: 'Adrian', lastName: 'Duarte' },
+	{ firstName: 'Jimena', lastName: 'Recalde' },
+	{ firstName: 'Esteban', lastName: 'Torales' },
+	{ firstName: 'Marisol', lastName: 'Riveros' },
+	{ firstName: 'Pablo', lastName: 'Bareiro' },
+	{ firstName: 'Silvana', lastName: 'Jara' },
+	{ firstName: 'Mauricio', lastName: 'Ledesma' },
+	{ firstName: 'Yamila', lastName: 'Melgarejo' },
+	{ firstName: 'Federico', lastName: 'Riquelme' },
+	{ firstName: 'Nadia', lastName: 'Ovelar' },
+	{ firstName: 'Benjamin', lastName: 'Valiente' },
+	{ firstName: 'Aldana', lastName: 'Marecos' },
+	{ firstName: 'Rodrigo', lastName: 'Brizuela' },
+	{ firstName: 'Carla', lastName: 'Sanabria' },
+	{ firstName: 'Ezequiel', lastName: 'Chamorro' },
+	{ firstName: 'Daiana', lastName: 'Mongelos' },
+	{ firstName: 'Jonathan', lastName: 'Cuevas' },
+	{ firstName: 'Pamela', lastName: 'Gimenez' },
+	{ firstName: 'Alan', lastName: 'Aranda' },
+	{ firstName: 'Fiorella', lastName: 'Paniagua' },
+	{ firstName: 'Ivan', lastName: 'Villagra' },
+	{ firstName: 'Daniel', lastName: 'Portillo' },
+	{ firstName: 'Jessica', lastName: 'Mieres' },
+	{ firstName: 'Marcos', lastName: 'Colman' },
+	{ firstName: 'Erika', lastName: 'Ortellado' },
+	{ firstName: 'Gustavo', lastName: 'Candia' },
+	{ firstName: 'Lourdes', lastName: 'Avalos' },
+	{ firstName: 'Christian', lastName: 'Benegas' },
+	{ firstName: 'Cinthia', lastName: 'Villamayor' }
 ];
 
 // Genera una inscripcion ficticia tomando N jugadores al azar de los que
@@ -190,9 +248,65 @@ export function generarResultadoPartido(): ResultadoPartido {
 	};
 }
 
-export function generarJugadorInput(): JugadorInput {
-	const nombre = pick(NOMBRES);
-	const apellido = pick(APELLIDOS);
+const SEDES_NOMBRES = [
+	'Club de Pádel Central',
+	'Padel House',
+	'Pádel Club Norte',
+	'Sport Center',
+	'Pádel Plaza',
+	'Racquet Club',
+	'Pádel Arena',
+	'Pádel Open',
+	'Pádel y Más'
+];
+const SEDES_CALLES = [
+	'Av. Libertador',
+	'Av. del Sol',
+	'Calle 9 de Julio',
+	'Av. San Martín',
+	'Calle Belgrano',
+	'Av. Mitre',
+	'Calle Sarmiento'
+];
+
+export function generarSedeInput(): SedeInput {
+	const nombre = pick(SEDES_NOMBRES);
+	const conDireccion = Math.random() < 0.75;
+	const direccion = conDireccion
+		? `${pick(SEDES_CALLES)} ${Math.floor(100 + Math.random() * 4900)}`
+		: null;
+	return { nombre, direccion };
+}
+
+export function generarCanchaInput(): CanchaInput {
+	// 60% "Cancha N", 30% nombres propios, 10% letra.
+	const r = Math.random();
+	let nombre: string;
+	if (r < 0.6) {
+		nombre = `Cancha ${Math.floor(1 + Math.random() * 8)}`;
+	} else if (r < 0.9) {
+		nombre = pick(['Central', 'Vidrio Este', 'Vidrio Oeste', 'Norte', 'Sur', 'Premium']);
+	} else {
+		nombre = String.fromCharCode(65 + Math.floor(Math.random() * 6));
+	}
+	return { nombre };
+}
+
+// Si se pasa `excluirCompletos`, evita repetir nombres completos ya tomados.
+// Cuando todos los pares de la lista se usaron, vuelve a permitir cualquiera
+// (caso raro: la lista tiene casi 100 pares y rara vez se llega al limite).
+export function generarJugadorInput(
+	excluirCompletos?: Set<string>
+): JugadorInput {
+	const disponibles =
+		excluirCompletos && excluirCompletos.size < NOMBRES_COMPLETOS.length
+			? NOMBRES_COMPLETOS.filter(
+					(n) => !excluirCompletos.has(`${n.firstName} ${n.lastName}`)
+				)
+			: NOMBRES_COMPLETOS;
+	const persona = pick(disponibles);
+	const nombre = persona.firstName;
+	const apellido = persona.lastName;
 	// Telefono: ~70% de chance que tenga. Mezclamos Argentina (+54) y Paraguay
 	// (+595) para cubrir los dos paises del dominio. Cuando no tiene, null.
 	let telefono: string | null = null;

@@ -1,5 +1,18 @@
 import { z } from 'zod';
 import type { Jugador } from './jugador';
+import { rangoHorarioSchema } from './programacion';
+
+// Bloqueo horario: un rango en el que un jugador especifico NO puede jugar.
+// Reusa el shape de rango horario de canchas (fecha + desde + hasta, con
+// '00:00' = medianoche). La pareja "no puede" si CUALQUIERA de sus jugadores
+// tiene un bloqueo que se solapa con el horario propuesto.
+export const bloqueoJugadorSchema = z
+	.object({
+		jugadorId: z.string().min(1)
+	})
+	.and(rangoHorarioSchema);
+
+export type BloqueoJugador = z.infer<typeof bloqueoJugadorSchema>;
 
 // Inscripcion = unidad competitiva (pareja, jugador, equipo) dentro de una
 // categoria. Atada a un torneo + categoria. jugadores es un array de
@@ -13,7 +26,14 @@ export const inscripcionInputSchema = z.object({
 	// Ranking opcional. Cuando esta presente debe ser entero >= 1. El snake
 	// draft (cuando exista) solo considera las inscripciones con ranking;
 	// las sin ranking se podran ordenar despues o quedan fuera del armado.
-	ranking: z.number().int().min(1).nullable()
+	ranking: z.number().int().min(1).nullable(),
+	// Bloqueos horarios por jugador (opcional). Se carga en el form despues
+	// de que el organizador definio rangos en canchas. Cada entrada
+	// referencia uno de los jugadores de la inscripcion + el rango en el
+	// que no puede jugar. La disponibilidad efectiva de la pareja es la
+	// interseccion (= lo que pueden todos sus jugadores). undefined/ausente
+	// se trata como [] al consumir.
+	bloqueosJugadores: z.array(bloqueoJugadorSchema).optional()
 });
 
 export type InscripcionInput = z.infer<typeof inscripcionInputSchema>;

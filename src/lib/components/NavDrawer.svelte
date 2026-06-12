@@ -18,7 +18,9 @@
 
 	const ITEMS: ItemMenu[] = [
 		{ href: '/torneos', label: 'Torneos', icono: 'bi-trophy' },
-		{ href: '/jugadores', label: 'Jugadores', icono: 'bi-people' }
+		{ href: '/jugadores', label: 'Jugadores', icono: 'bi-people' },
+		{ href: '/sedes', label: 'Sedes', icono: 'bi-geo-alt' },
+		{ href: '/configuracion', label: 'Configuración', icono: 'bi-sliders' }
 	];
 
 	let { open = $bindable(false) }: { open: boolean } = $props();

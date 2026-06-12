@@ -1,21 +1,21 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import BottomSheet from '$lib/components/BottomSheet.svelte';
-	import CategoriaForm from '$lib/components/CategoriaForm.svelte';
 	import RangoFechas from '$lib/components/RangoFechas.svelte';
 	import { suscribirTorneo, eliminarTorneo } from '$lib/services/torneos';
-	import { suscribirCategorias, crearCategoria } from '$lib/services/categorias';
-	import { AMBIENTE } from '$lib/firebase';
-	import { generarCategoriaInput } from '$lib/dev/factories';
+	import { suscribirCategorias } from '$lib/services/categorias';
+	import { suscribirCanchasDelTorneo } from '$lib/services/programacion';
+	import type { TorneoCancha } from '$lib/types/programacion';
 	import {
 		GENEROS_CATEGORIA,
 		NIVELES_CATEGORIA,
 		nombreCategoria,
 		type Torneo,
-		type Categoria,
-		type CategoriaInput
+		type Categoria
 	} from '$lib/types/torneo';
+	// El alta y la edicion de categoria viven en pantallas dedicadas
+	// (/categorias/nueva y /categorias/[cid]/editar) — esta lista solo
+	// navega hacia esas pantallas.
 
 	// El parametro [id] siempre esta presente cuando esta ruta matchea,
 	// pero el tipo generado es string | undefined. Afirmamos.
@@ -25,8 +25,7 @@
 	let cargandoTorneo = $state(true);
 	let categorias = $state<Categoria[]>([]);
 	let cargandoCats = $state(true);
-
-	let sheetNueva = $state(false);
+	let canchasTorneo = $state<TorneoCancha[]>([]);
 
 	// Listado ordenado por nivel (1ra -> 9na) y, dentro del mismo nivel, por
 	// genero (Caballeros -> Damas -> Mixto). El orden viene de la posicion en
@@ -49,7 +48,6 @@
 		cargandoCats = true;
 		torneo = null;
 		categorias = [];
-		sheetNueva = false;
 
 		const unsubT = suscribirTorneo(tid, (t) => {
 			torneo = t;
@@ -59,11 +57,21 @@
 			categorias = c;
 			cargandoCats = false;
 		});
+		const unsubCanchas = suscribirCanchasDelTorneo(tid, (cs) => {
+			canchasTorneo = cs;
+		});
 		return () => {
 			unsubT();
 			unsubC();
+			unsubCanchas();
 		};
 	});
+
+	const subCanchas = $derived(
+		canchasTorneo.length === 0
+			? 'Sin canchas'
+			: `${canchasTorneo.length} ${canchasTorneo.length === 1 ? 'cancha' : 'canchas'}`
+	);
 
 
 	async function handleEliminarTorneo() {
@@ -76,20 +84,6 @@
 		await goto('/torneos', { replaceState: true });
 	}
 
-	async function handleCrearCat(data: CategoriaInput) {
-		await crearCategoria(id, data);
-		sheetNueva = false;
-	}
-
-	const initialNuevaCat: CategoriaInput = {
-		nivel: '4ta',
-		genero: 'Caballeros',
-		cupos: null,
-		cantidadJugadores: 2
-	};
-
-	// Boton "Test" disponible solo fuera de produccion.
-	const onTestCat = AMBIENTE !== 'prod' ? generarCategoriaInput : undefined;
 </script>
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
@@ -138,17 +132,51 @@
 			</footer>
 		</section>
 
+		<!-- Cards de gestion del torneo (canchas + programacion). -->
+		<div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+			<a
+				href={`/torneos/${id}/canchas`}
+				class="flex w-full items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+			>
+				<span
+					class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
+				>
+					<i class="bi bi-grid-3x3 text-xl"></i>
+				</span>
+				<div class="min-w-0 flex-1">
+					<p class="text-base font-semibold text-gray-900 dark:text-gray-100">Canchas</p>
+					<p class="text-xs text-gray-500 dark:text-gray-400">{subCanchas}</p>
+				</div>
+				<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>
+			</a>
+			<a
+				href={`/torneos/${id}/programacion`}
+				class="flex w-full items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+			>
+				<span
+					class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
+				>
+					<i class="bi bi-calendar3 text-xl"></i>
+				</span>
+				<div class="min-w-0 flex-1">
+					<p class="text-base font-semibold text-gray-900 dark:text-gray-100">Programación</p>
+					<p class="text-xs text-gray-500 dark:text-gray-400">Asignar fecha, hora y cancha</p>
+				</div>
+				<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>
+			</a>
+		</div>
+
 		<section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
 			<div class="mb-4 flex items-center justify-between">
 				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Categorías</h2>
-				<button
-					type="button"
-					onclick={() => (sheetNueva = true)}
-					class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-600"
+				<a
+					href={`/torneos/${id}/categorias/nueva`}
+					title="Nueva categoría"
+					aria-label="Nueva categoría"
+					class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-white hover:bg-brand-600"
 				>
-					<i class="bi bi-plus-lg"></i>
-					Nueva categoría
-				</button>
+					<i class="bi bi-plus-lg text-lg"></i>
+				</a>
 			</div>
 
 			{#if cargandoCats}
@@ -185,18 +213,3 @@
 	{/if}
 </div>
 
-<!-- Sheet de nueva categoria: form en blanco. Editar/eliminar viven en el
-     detalle de cada categoria. -->
-<BottomSheet
-	open={sheetNueva}
-	onClose={() => (sheetNueva = false)}
-	title="Nueva categoría"
->
-	<CategoriaForm
-		initial={initialNuevaCat}
-		submitLabel="Crear"
-		onSubmit={handleCrearCat}
-		onCancel={() => (sheetNueva = false)}
-		onTest={onTestCat}
-	/>
-</BottomSheet>

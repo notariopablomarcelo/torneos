@@ -25,6 +25,12 @@ export function resolverParejaRef(
 ): string | null {
 	if (ref.tipo === 'Inscripcion') return ref.inscripcionId;
 
+	// PosicionZona necesita la tabla de posiciones de la zona; este helper
+	// solo se ocupa de las refs simbolicas que pueden resolverse con los
+	// partidos ya cargados. PosicionZona se resuelve afuera, en el caller
+	// (que tiene acceso a zonas y a la tabla calculada).
+	if (ref.tipo === 'PosicionZona') return null;
+
 	const partidoRef = partidos.find((p) => p.numeroEnZona === ref.numeroEnZona);
 	if (!partidoRef || !partidoRef.resultado) return null;
 
@@ -124,13 +130,16 @@ export function calcularTablaPosiciones(zona: Zona, partidos: Partido[]): FilaTa
 		});
 	});
 
-	const partidosDeZona = partidos.filter(
-		(p) => p.zonaId === zona.id && p.resultado !== null
-	);
+	// Partidos del CONTEXTO de esta zona (no del bracket). Al pasarlos al
+	// resolverParejaRef evitamos que un GanadorPartido referenciado por
+	// numeroEnZona coincida accidentalmente con un partido del bracket que
+	// tenga el mismo numero.
+	const partidosDeZonaTodos = partidos.filter((p) => p.zonaId === zona.id);
+	const partidosDeZona = partidosDeZonaTodos.filter((p) => p.resultado !== null);
 
 	for (const partido of partidosDeZona) {
-		const pareja1Id = resolverParejaRef(partido.pareja1Ref, partidos);
-		const pareja2Id = resolverParejaRef(partido.pareja2Ref, partidos);
+		const pareja1Id = resolverParejaRef(partido.pareja1Ref, partidosDeZonaTodos);
+		const pareja2Id = resolverParejaRef(partido.pareja2Ref, partidosDeZonaTodos);
 		if (!pareja1Id || !pareja2Id) continue;
 		const fila1 = filas.get(pareja1Id);
 		const fila2 = filas.get(pareja2Id);
@@ -163,6 +172,53 @@ export function calcularTablaPosiciones(zona: Zona, partidos: Partido[]): FilaTa
 	for (const fila of filas.values()) {
 		fila.difSets = fila.sf - fila.sc;
 		fila.difGames = fila.gf - fila.gc;
+	}
+
+	// Zona de 4 con doble oportunidad: la posicion final esta determinada
+	// por el rol jugado, no por la tabla acumulada.
+	//   - Ganador de P3 (partido de ganadores)   → 1°
+	//   - Perdedor de P3                          → 2°
+	//   - Ganador de P4 (partido de perdedores)  → 3°
+	//   - Perdedor de P4                          → 4°
+	// Las parejas sin posicion fija (porque P3 o P4 aun no tienen resultado)
+	// caen al ordenamiento estandar despues de las que si la tienen.
+	if (zona.tamano === 4 && zona.modalidad === 'dobleOportunidad') {
+		const p3 = partidosDeZonaTodos.find((p) => p.numeroEnZona === 3);
+		const p4 = partidosDeZonaTodos.find((p) => p.numeroEnZona === 4);
+		const posicionFija = new Map<string, number>();
+
+		function asignar(
+			partido: Partido | undefined,
+			posGanador: number,
+			posPerdedor: number
+		): void {
+			if (!partido || !partido.resultado) return;
+			const ins1 = resolverParejaRef(partido.pareja1Ref, partidosDeZonaTodos);
+			const ins2 = resolverParejaRef(partido.pareja2Ref, partidosDeZonaTodos);
+			if (!ins1 || !ins2) return;
+			const ganador = partido.resultado.ganadorEs === 1 ? ins1 : ins2;
+			const perdedor = partido.resultado.ganadorEs === 1 ? ins2 : ins1;
+			posicionFija.set(ganador, posGanador);
+			posicionFija.set(perdedor, posPerdedor);
+		}
+		asignar(p3, 1, 2);
+		asignar(p4, 3, 4);
+
+		return Array.from(filas.values()).sort((a, b) => {
+			const ra = posicionFija.get(a.inscripcionId);
+			const rb = posicionFija.get(b.inscripcionId);
+			// Ambos con posicion fija → respetar el orden DO.
+			if (ra !== undefined && rb !== undefined) return ra - rb;
+			// Uno con fija va primero (los partidos de DO ya terminaron y
+			// definieron su posicion).
+			if (ra !== undefined) return -1;
+			if (rb !== undefined) return 1;
+			// Ninguno con fija → fallback al ordenamiento estandar.
+			if (a.pg !== b.pg) return b.pg - a.pg;
+			if (a.difSets !== b.difSets) return b.difSets - a.difSets;
+			if (a.difGames !== b.difGames) return b.difGames - a.difGames;
+			return a.posicionInicial - b.posicionInicial;
+		});
 	}
 
 	return Array.from(filas.values()).sort((a, b) => {

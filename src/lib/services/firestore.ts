@@ -9,6 +9,8 @@ import type { Categoria, Torneo } from '$lib/types/torneo';
 import type { Jugador } from '$lib/types/jugador';
 import type { Inscripcion } from '$lib/types/inscripcion';
 import type { Partido, Zona } from '$lib/types/armado';
+import type { Cancha, Sede } from '$lib/types/sede';
+import type { TorneoCancha } from '$lib/types/programacion';
 
 // Referencias tipadas a las colecciones y documentos. Las paginas y servicios
 // arman queries sobre estas helpers, en lugar de repetir el path como string.
@@ -21,6 +23,9 @@ type JugadorDoc = Omit<Jugador, 'id'>;
 type InscripcionDoc = Omit<Inscripcion, 'id'>;
 type ZonaDoc = Omit<Zona, 'id'>;
 type PartidoDoc = Omit<Partido, 'id'>;
+type SedeDoc = Omit<Sede, 'id'>;
+type CanchaDoc = Omit<Cancha, 'id'>;
+type TorneoCanchaDoc = Omit<TorneoCancha, 'id'>;
 
 export const torneosCol = (): CollectionReference<TorneoDoc> =>
 	collection(db(), 'torneos') as CollectionReference<TorneoDoc>;
@@ -126,3 +131,29 @@ export const partidoDoc = (
 		'partidos',
 		id
 	) as DocumentReference<PartidoDoc>;
+
+export const sedesCol = (): CollectionReference<SedeDoc> =>
+	collection(db(), 'sedes') as CollectionReference<SedeDoc>;
+
+export const sedeDoc = (id: string): DocumentReference<SedeDoc> =>
+	doc(db(), 'sedes', id) as DocumentReference<SedeDoc>;
+
+export const canchasCol = (sedeId: string): CollectionReference<CanchaDoc> =>
+	collection(db(), 'sedes', sedeId, 'canchas') as CollectionReference<CanchaDoc>;
+
+export const canchaDoc = (
+	sedeId: string,
+	id: string
+): DocumentReference<CanchaDoc> =>
+	doc(db(), 'sedes', sedeId, 'canchas', id) as DocumentReference<CanchaDoc>;
+
+export const torneoCanchasCol = (
+	torneoId: string
+): CollectionReference<TorneoCanchaDoc> =>
+	collection(db(), 'torneos', torneoId, 'canchas') as CollectionReference<TorneoCanchaDoc>;
+
+export const torneoCanchaDoc = (
+	torneoId: string,
+	id: string
+): DocumentReference<TorneoCanchaDoc> =>
+	doc(db(), 'torneos', torneoId, 'canchas', id) as DocumentReference<TorneoCanchaDoc>;

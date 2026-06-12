@@ -28,17 +28,18 @@ export const armadoConfigSchema = z.object({
 });
 export type ArmadoConfig = z.infer<typeof armadoConfigSchema>;
 
-// Referencia a una "pareja" (=inscripcion) en un partido. Para partidos de
-// zona puede ser:
-// - directa por id de inscripcion (round-robin completo o cruces iniciales
-//   de doble oportunidad);
-// - simbolica: "ganador/perdedor del partido N de esta zona" (para los
-//   partidos derivados de la doble oportunidad).
-// Cuando agreguemos bracket, sumamos un caso 'Posicional' tipo "1° de zona A".
+// Referencia a una "pareja" (=inscripcion) en un partido. Puede ser:
+// - directa por id de inscripcion;
+// - simbolica: "ganador/perdedor del partido N" (donde N es el
+//   numeroEnZona del partido referenciado dentro de su contexto — zona
+//   en fase de grupos, bracket en fase eliminatoria);
+// - posicional: "X° de zona Y" (solo en bracket; se resuelve cuando la
+//   zona termina y la tabla de posiciones esta definida).
 export type ParejaRef =
 	| { tipo: 'Inscripcion'; inscripcionId: string }
 	| { tipo: 'GanadorPartido'; numeroEnZona: number }
-	| { tipo: 'PerdedorPartido'; numeroEnZona: number };
+	| { tipo: 'PerdedorPartido'; numeroEnZona: number }
+	| { tipo: 'PosicionZona'; letraZona: string; posicion: 1 | 2 | 3 };
 
 // Estado de una zona armada. La modalidad y clasifican se guardan en la
 // propia zona (no solo en la config macro de la categoria) porque despues
@@ -55,7 +56,18 @@ export type Zona = {
 	creadoEn: string;
 };
 
-export type FasePartido = 'Zona' | 'Octavos' | 'Cuartos' | 'Semis' | 'Final';
+// Fases del torneo. Los rotulos del bracket usan abreviaturas en castellano:
+// 16vos, 8vos, 4tos, Semis, Final. Los partidos previos a 16vos en cuadros
+// grandes se rotulan como "32vos" (no soportado hoy en la UI). Esto es lo
+// que se persiste en Firestore.
+export type FasePartido =
+	| 'Zona'
+	| '32vos'
+	| '16vos'
+	| '8vos'
+	| '4tos'
+	| 'Semis'
+	| 'Final';
 
 export type EstadoPartido = 'Pendiente' | 'Programado' | 'Jugado';
 
@@ -83,18 +95,49 @@ export const resultadoPartidoSchema = z.object({
 });
 export type ResultadoPartido = z.infer<typeof resultadoPartidoSchema>;
 
+// Asignacion de fecha+hora+cancha al partido. null/undefined = sin programar.
+// Se gestiona desde /torneos/[id]/programacion.
+export type ProgramacionPartido = {
+	fecha: string; // YYYY-MM-DD
+	hora: string; // HH:mm
+	canchaId: string; // referencia a la cancha (no a TorneoCancha)
+};
+
 export type Partido = {
 	id: string;
 	categoriaId: string;
-	zonaId: string | null; // null = bracket
+	// zonaId !== null  → partido de fase de grupos.
+	// bracketId !== null → partido del bracket eliminatorio.
+	// Solo uno de los dos esta seteado a la vez.
+	zonaId: string | null;
+	bracketId?: string | null;
 	fase: FasePartido;
-	numeroEnZona: number; // posicion del partido dentro de la zona
+	// Numero del partido dentro de su contexto (zona o bracket). Es la base
+	// del esquema de refs simbolicas ("Ganador P3" apunta a partido con
+	// numeroEnZona=3 dentro del mismo contexto).
+	numeroEnZona: number;
+	// Solo bracket: ronda (1=primera ronda real del cuadro), posicion dentro
+	// de la ronda (1, 2, ...). Sirven para ordenar y mostrar.
+	ronda?: number;
+	posicionEnRonda?: number;
 	pareja1Ref: ParejaRef;
 	pareja2Ref: ParejaRef;
 	resultado: ResultadoPartido | null;
 	estado: EstadoPartido;
+	// null/undefined = sin programar. Cuando esta seteado, el partido tiene
+	// fecha/hora/cancha asignadas (no implica que se haya jugado todavia).
+	programacion?: ProgramacionPartido | null;
 	creadoEn: string;
 };
+
+// Config del bracket. Snapshot guardado en Categoria.bracketConfig cuando
+// se arma. Solo necesitamos saber cuantas parejas entraron al cuadro (para
+// reconstruir/mostrar el cuadro sin recalcular todo).
+export const bracketConfigSchema = z.object({
+	cantidadParejas: z.number().int().min(2).max(64),
+	armadoEn: z.string()
+});
+export type BracketConfig = z.infer<typeof bracketConfigSchema>;
 
 // "Plantilla" de zona armada, antes de persistirla (sin id/creadoEn). El
 // algoritmo devuelve este shape; el servicio le pone los ids y la guarda.

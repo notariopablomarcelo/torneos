@@ -4,6 +4,10 @@
 	import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
 	import Header from '$lib/components/Header.svelte';
 	import NavDrawer from '$lib/components/NavDrawer.svelte';
+	// Importamos el store de paleta solo por su side-effect: en su constructor
+	// aplica las CSS custom properties al :root, persistiendo lo que el user
+	// haya elegido (o usando el default azul Francia si nunca configuro nada).
+	import '$lib/stores/paleta';
 
 	// El polyfill detecta si el browser necesita la font de banderas (Windows
 	// + Chrome desktop la necesitan; mobile y Mac no). Si hace falta, carga

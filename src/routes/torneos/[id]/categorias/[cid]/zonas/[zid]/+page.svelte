@@ -18,6 +18,15 @@
 		suscribirZonas
 	} from '$lib/services/armado';
 	import {
+		suscribirCanchasDelTorneo,
+		suscribirTodasLasCanchas
+	} from '$lib/services/programacion';
+	import { suscribirSedes } from '$lib/services/sedes';
+	import { etiquetaFechaCorta } from '$lib/dates';
+	import { horaAMinutos, minutosAHora } from '$lib/programacion/algoritmo';
+	import type { TorneoCancha } from '$lib/types/programacion';
+	import type { Cancha, Sede } from '$lib/types/sede';
+	import {
 		calcularTablaPosiciones,
 		estadoZona,
 		resolverParejaRef
@@ -53,6 +62,10 @@
 	let jugadores = $state<Jugador[]>([]);
 	let zonas = $state<Zona[]>([]);
 	let partidos = $state<Partido[]>([]);
+	// Para resolver nombres en el tab cronologia.
+	let canchasTorneo = $state<TorneoCancha[]>([]);
+	let canchasGlobales = $state<Cancha[]>([]);
+	let sedes = $state<Sede[]>([]);
 	let cargandoCategoria = $state(true);
 	let cargandoJugadores = $state(true);
 	let errorCarga = $state<string | null>(null);
@@ -97,6 +110,15 @@
 		const unsubP = suscribirPartidos(t, c, (val) => {
 			partidos = val;
 		});
+		const unsubCT = suscribirCanchasDelTorneo(t, (val) => {
+			canchasTorneo = val;
+		});
+		const unsubCG = suscribirTodasLasCanchas((val) => {
+			canchasGlobales = val;
+		});
+		const unsubSe = suscribirSedes((val) => {
+			sedes = val;
+		});
 		(async () => {
 			try {
 				const cat = await obtenerCategoria(t, c);
@@ -117,8 +139,32 @@
 			unsubJ();
 			unsubZ();
 			unsubP();
+			unsubCT();
+			unsubCG();
+			unsubSe();
 		};
 	});
+
+	// Lookups para la cronologia (tab nuevo).
+	const sedesPorId = $derived(new Map(sedes.map((s) => [s.id, s])));
+	const canchasGlobalesPorId = $derived(
+		new Map(canchasGlobales.map((c) => [c.id, c]))
+	);
+	const canchasTorneoPorCanchaId = $derived(
+		new Map(canchasTorneo.map((tc) => [tc.canchaId, tc]))
+	);
+
+	function labelCancha(canchaId: string): string {
+		const cancha = canchasGlobalesPorId.get(canchaId);
+		if (!cancha) return 'Cancha desconocida';
+		const sede = sedesPorId.get(cancha.sedeId);
+		return sede ? `${cancha.nombre} · ${sede.nombre}` : cancha.nombre;
+	}
+
+	function rangoHorarioPartido(horaInicio: string): string {
+		const finMin = horaAMinutos(horaInicio) + 90;
+		return `${horaInicio} – ${minutosAHora(finMin)}`;
+	}
 
 	const partidosZ = $derived(
 		[...partidos]
@@ -128,11 +174,11 @@
 
 	const tabla = $derived(zona ? calcularTablaPosiciones(zona, partidos) : []);
 	const hayJugados = $derived(partidosZ.some((p) => p.resultado !== null));
-	const est = $derived(zona ? estadoZona(zona, partidos) : 'Pendiente');
+	const est = $derived(zona ? estadoZona(zona, partidosZ) : 'Pendiente');
 
 	function descripcionParejaRef(ref: ParejaRef): string {
 		if (ref.tipo === 'GanadorPartido' || ref.tipo === 'PerdedorPartido') {
-			const inscId = resolverParejaRef(ref, partidos);
+			const inscId = resolverParejaRef(ref, partidosZ);
 			if (inscId) {
 				const insc = inscripcionesPorId.get(inscId);
 				if (insc) return nombreInscripcion(insc, jugadoresPorId);
@@ -148,6 +194,9 @@
 				return `Ganador del P${ref.numeroEnZona}`;
 			case 'PerdedorPartido':
 				return `Perdedor del P${ref.numeroEnZona}`;
+			case 'PosicionZona':
+				// Solo aparece en bracket; en zona detail nunca deberia llegar aca.
+				return `${ref.posicion}° de Zona ${ref.letraZona}`;
 			default: {
 				const _exhaustivo: never = ref;
 				return _exhaustivo;
@@ -157,11 +206,14 @@
 
 	function nombresDeParejaRef(ref: ParejaRef): string[] {
 		if (ref.tipo === 'GanadorPartido' || ref.tipo === 'PerdedorPartido') {
-			const inscId = resolverParejaRef(ref, partidos);
+			const inscId = resolverParejaRef(ref, partidosZ);
 			if (inscId) {
 				const insc = inscripcionesPorId.get(inscId);
 				if (insc) return nombresJugadores(insc, jugadoresPorId);
 			}
+			return [descripcionParejaRef(ref)];
+		}
+		if (ref.tipo === 'PosicionZona') {
 			return [descripcionParejaRef(ref)];
 		}
 		const insc = inscripcionesPorId.get(ref.inscripcionId);
@@ -171,8 +223,38 @@
 
 	// ===== Carga de resultados =====
 
-	type TabId = 'posiciones' | 'partidos';
+	type TabId = 'posiciones' | 'partidos' | 'cronologia';
 	let tabActiva = $state<TabId>('posiciones');
+
+	// Partidos de la zona que ya tienen programacion, ordenados cronologicamente.
+	const partidosProgramadosZ = $derived(
+		[...partidosZ]
+			.filter((p) => p.programacion !== null && p.programacion !== undefined)
+			.sort((a, b) => {
+				const pA = a.programacion!;
+				const pB = b.programacion!;
+				if (pA.fecha !== pB.fecha) return pA.fecha.localeCompare(pB.fecha);
+				return pA.hora.localeCompare(pB.hora);
+			})
+	);
+
+	// Agrupar por fecha para que el tab muestre dias separados.
+	type GrupoFecha = {
+		fecha: string;
+		partidos: Partido[];
+	};
+	const cronologiaPorFecha = $derived.by<GrupoFecha[]>(() => {
+		const map = new Map<string, Partido[]>();
+		for (const p of partidosProgramadosZ) {
+			const f = p.programacion!.fecha;
+			const arr = map.get(f) ?? [];
+			arr.push(p);
+			map.set(f, arr);
+		}
+		return Array.from(map.entries())
+			.sort((a, b) => a[0].localeCompare(b[0]))
+			.map(([fecha, partidos]) => ({ fecha, partidos }));
+	});
 
 	let partidoEditandoId = $state<string | null>(null);
 
@@ -361,14 +443,14 @@
 			</div>
 		</header>
 
-		<!-- Tabs segmented control: posiciones / partidos. -->
+		<!-- Tabs segmented control: posiciones / partidos / cronologia. -->
 		<div class="mb-4 flex w-full items-center gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
 			<button
 				type="button"
 				role="tab"
 				aria-selected={tabActiva === 'posiciones'}
 				onclick={() => (tabActiva = 'posiciones')}
-				class="flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition {tabActiva ===
+				class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs transition sm:gap-2 sm:px-3 sm:text-sm {tabActiva ===
 				'posiciones'
 					? 'bg-white font-semibold text-brand-700 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:text-brand-300'
 					: 'bg-transparent font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}"
@@ -381,7 +463,7 @@
 				role="tab"
 				aria-selected={tabActiva === 'partidos'}
 				onclick={() => (tabActiva = 'partidos')}
-				class="flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition {tabActiva ===
+				class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs transition sm:gap-2 sm:px-3 sm:text-sm {tabActiva ===
 				'partidos'
 					? 'bg-white font-semibold text-brand-700 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:text-brand-300'
 					: 'bg-transparent font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}"
@@ -396,6 +478,29 @@
 				>
 					{partidosZ.length}
 				</span>
+			</button>
+			<button
+				type="button"
+				role="tab"
+				aria-selected={tabActiva === 'cronologia'}
+				onclick={() => (tabActiva = 'cronologia')}
+				class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs transition sm:gap-2 sm:px-3 sm:text-sm {tabActiva ===
+				'cronologia'
+					? 'bg-white font-semibold text-brand-700 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:text-brand-300'
+					: 'bg-transparent font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}"
+			>
+				<i class="bi bi-calendar3 text-base"></i>
+				<span>Cronología</span>
+				{#if partidosProgramadosZ.length > 0}
+					<span
+						class="ml-0.5 inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold {tabActiva ===
+						'cronologia'
+							? 'bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400'
+							: 'bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}"
+					>
+						{partidosProgramadosZ.length}
+					</span>
+				{/if}
 			</button>
 		</div>
 
@@ -462,7 +567,7 @@
 			</ul>
 		</section>
 
-		{:else}
+		{:else if tabActiva === 'partidos'}
 		<section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
 			{#if partidosZ.length === 0}
 				<p class="py-6 text-center text-xs text-gray-500 dark:text-gray-400">Sin partidos.</p>
@@ -597,6 +702,106 @@
 						</li>
 					{/each}
 				</ul>
+			{/if}
+		</section>
+
+		{:else}
+		<!-- Tab Cronologia: partidos de la zona con programacion (fecha+hora+
+		     cancha) ordenados cronologicamente. Estilo timeline con dot a la
+		     izq + linea vertical conectando. Si ningun partido fue programado
+		     todavia, mostramos un estado vacio con CTA hacia /programacion. -->
+		<section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+			{#if partidosProgramadosZ.length === 0}
+				<div class="py-8 text-center">
+					<i class="bi bi-calendar3 text-3xl text-gray-300 dark:text-gray-600"></i>
+					<p class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+						Sin partidos programados
+					</p>
+					<p class="text-xs text-gray-500 dark:text-gray-400">
+						Asigná fecha, hora y cancha desde
+						<a
+							href={`/torneos/${tid}/programacion`}
+							class="font-medium text-brand-700 underline dark:text-brand-300"
+						>
+							Programación
+						</a>
+						.
+					</p>
+				</div>
+			{:else}
+				<div class="space-y-5">
+					{#each cronologiaPorFecha as grupo (grupo.fecha)}
+						<div>
+							<p class="mb-3 text-xs font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
+								{etiquetaFechaCorta(grupo.fecha)}
+							</p>
+							<ol class="relative border-l-2 border-gray-200 pl-5 dark:border-gray-700">
+								{#each grupo.partidos as p (p.id)}
+									{@const jugado = p.resultado !== null}
+									{@const nombres1 = nombresDeParejaRef(p.pareja1Ref)}
+									{@const nombres2 = nombresDeParejaRef(p.pareja2Ref)}
+									<li class="mb-4 last:mb-0">
+										<span
+											class="absolute -left-[7px] mt-1 flex h-3 w-3 items-center justify-center rounded-full border-2 border-white {jugado
+												? 'bg-emerald-500'
+												: 'bg-brand-500'} dark:border-gray-900"
+										></span>
+										<div class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+											<div class="mb-2 flex flex-wrap items-center gap-2">
+												<span class="font-mono text-sm font-bold text-gray-900 dark:text-gray-100">
+													{rangoHorarioPartido(p.programacion!.hora)}
+												</span>
+												<span class="text-xs text-gray-500 dark:text-gray-400">
+													· P{p.numeroEnZona}
+												</span>
+												{#if jugado}
+													<span class="ml-auto rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+														Jugado
+													</span>
+												{:else}
+													<span class="ml-auto rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+														Pendiente
+													</span>
+												{/if}
+											</div>
+											<p class="mb-2 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+												<i class="bi bi-geo-alt-fill text-brand-500"></i>
+												{labelCancha(p.programacion!.canchaId)}
+											</p>
+											<div class="grid grid-cols-2 gap-2">
+												<div class="min-w-0">
+													{#each nombres1 as n, j (j)}
+														<p class="truncate text-xs text-gray-700 dark:text-gray-300">{n}</p>
+													{/each}
+												</div>
+												<div class="min-w-0 border-l border-gray-100 pl-2 dark:border-gray-800">
+													{#each nombres2 as n, j (j)}
+														<p class="truncate text-xs text-gray-700 dark:text-gray-300">{n}</p>
+													{/each}
+												</div>
+											</div>
+											{#if jugado}
+												<p class="mt-2 truncate font-mono text-xs text-gray-600 dark:text-gray-400">
+													{formatearMarcador(p)}
+												</p>
+											{/if}
+											<div class="mt-2 flex justify-end">
+												<button
+													type="button"
+													onclick={() => abrirResultado(p.id)}
+													class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-900/40"
+												>
+													<i class="bi {jugado ? 'bi-pencil' : 'bi-plus-circle'}"></i>
+													{jugado ? 'Editar' : 'Cargar resultado'}
+												</button>
+											</div>
+										</div>
+									</li>
+								{/each}
+							</ol>
+						</div>
+					{/each}
+				</div>
 			{/if}
 		</section>
 		{/if}

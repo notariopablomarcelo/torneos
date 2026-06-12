@@ -254,14 +254,45 @@ describe('calcularTablaPosiciones · zona 4 DO', () => {
 			resultado([[6, 2], [6, 2]], 2) // C gana
 		);
 		const tabla = calcularTablaPosiciones(z, [p1, p2, p3, p4]);
-		// A: gano 2 (p1 y p3).
-		// B: gano 1 (p2).
-		// C: gano 1 (p4).
-		// D: gano 0.
+		// En zona DO la posicion esta determinada por el ROL jugado:
+		//   1° = ganador de P3 (partido de ganadores)        → A
+		//   2° = perdedor de P3                               → B
+		//   3° = ganador de P4 (partido de perdedores)       → C
+		//   4° = perdedor de P4                               → D
+		// La tabla acumulada (pg, dif sets, etc.) no se usa para ordenar
+		// — el rol manda. Asi el perdedor de P3 va SIEMPRE antes que el
+		// ganador de P4, aunque ambos tengan PG=1.
 		expect(tabla[0].inscripcionId).toBe('A');
-		expect(tabla[0].pg).toBe(2);
-		// Despues B y C empatan en PG=1, desempate por dif sets / games / posicionInicial.
+		expect(tabla[1].inscripcionId).toBe('B');
+		expect(tabla[2].inscripcionId).toBe('C');
 		expect(tabla[3].inscripcionId).toBe('D');
+	});
+
+	it('zona DO con solo P3 jugado: ganador y perdedor de P3 quedan en 1° y 2°', () => {
+		// Cuando P4 aun no se jugo, las posiciones 1° y 2° ya estan
+		// definidas por P3, pero 3° y 4° aun no.
+		const z = zona('A', ['A', 'B', 'C', 'D'], 4);
+		const p1 = partido(z.id, 1, 'A', 'D', resultado([[6, 0], [6, 0]], 1));
+		const p2 = partido(z.id, 2, 'B', 'C', resultado([[6, 4], [6, 4]], 1));
+		const p3 = partido(
+			z.id,
+			3,
+			{ tipo: 'GanadorPartido', numeroEnZona: 1 },
+			{ tipo: 'GanadorPartido', numeroEnZona: 2 },
+			resultado([[6, 3], [6, 2]], 2) // B gana P3
+		);
+		// Sin p4 jugado.
+		const p4Sin = partido(
+			z.id,
+			4,
+			{ tipo: 'PerdedorPartido', numeroEnZona: 1 },
+			{ tipo: 'PerdedorPartido', numeroEnZona: 2 },
+			null
+		);
+		const tabla = calcularTablaPosiciones(z, [p1, p2, p3, p4Sin]);
+		expect(tabla[0].inscripcionId).toBe('B'); // ganador P3 → 1°
+		expect(tabla[1].inscripcionId).toBe('A'); // perdedor P3 → 2°
+		// C y D sin posicion fija (P4 sin jugar) caen al fallback.
 	});
 });
 

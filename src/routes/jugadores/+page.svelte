@@ -86,7 +86,13 @@
 		telefono: null
 	};
 
-	const onTest = AMBIENTE !== 'prod' ? generarJugadorInput : undefined;
+	// Pasamos la lista de nombreCompleto ya cargados para que la factory los
+	// evite. Asi clickear Test no genera duplicados.
+	const onTest =
+		AMBIENTE !== 'prod'
+			? () =>
+					generarJugadorInput(new Set(jugadores.map((j) => j.nombreCompleto)))
+			: undefined;
 </script>
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">

@@ -27,6 +27,7 @@
 	} from '$lib/types/inscripcion';
 	import type { ArmadoConfig, ModalidadZona4, Zona } from '$lib/types/armado';
 	import type { Jugador } from '$lib/types/jugador';
+	import { generarZonasSembradas } from '$lib/preview/estructura';
 
 	const tid = $derived(page.params.id as string);
 	const cid = $derived(page.params.cid as string);
@@ -44,27 +45,6 @@
 
 	let sheetArmado = $state(false);
 	let sheetConfig = $state(false);
-
-	// Paleta para diferenciar visualmente las zonas mediante una linea de color
-	// a la izquierda del card. Se asigna ciclicamente por la letra (A=0, B=1,
-	// ...). Hex directos para evitar el problema de Tailwind con clases
-	// dinamicas sin safelist.
-	const COLORES_ZONA = [
-		'#3b82f6', // blue
-		'#10b981', // emerald
-		'#f59e0b', // amber
-		'#ef4444', // rose
-		'#8b5cf6', // violet
-		'#06b6d4', // cyan
-		'#f97316', // orange
-		'#ec4899' // pink
-	];
-
-	function colorPorLetra(letra: string): string {
-		const idx = letra.charCodeAt(0) - 'A'.charCodeAt(0);
-		const safe = ((idx % COLORES_ZONA.length) + COLORES_ZONA.length) % COLORES_ZONA.length;
-		return COLORES_ZONA[safe] as string;
-	}
 
 	const jugadoresPorId = $derived(new Map(jugadores.map((j) => [j.id, j])));
 	const inscripcionesPorId = $derived(
@@ -122,10 +102,48 @@
 	const armadoConfig = $derived(categoria?.armadoConfig ?? null);
 	const estaArmada = $derived(armadoConfig !== null);
 
+	// Preview de zonas con parejas genericas ("Pareja 01"...). Aparece solo
+	// cuando la categoria NO esta armada pero ya tiene estructura preferida +
+	// cupos definidos. Asi el admin ve la forma que va a tener el torneo
+	// antes de cargar inscripciones reales.
+	const previewZonas = $derived.by(() => {
+		if (estaArmada) return null;
+		if (!categoria?.cupos) return null;
+		if (!categoria.tamanoPreferido) return null;
+		const modalidad =
+			categoria.tamanoPreferido === 4
+				? (categoria.modalidadZona4 ?? 'todosContraTodos')
+				: 'todosContraTodos';
+		const zonas = generarZonasSembradas(
+			categoria.cupos,
+			categoria.tamanoPreferido,
+			modalidad
+		);
+		return zonas.length === 0 ? null : zonas;
+	});
+
+	// Cuando la categoria tiene cupos definidos, exigimos que esten todos
+	// completos antes de armar — sino el sembrado por ranking queda incompleto
+	// y al cargar la inscripcion faltante el armado tendria que rehacerse.
+	// Cuando no hay cupo definido, mantenemos las reglas mínimas (>=3, !=5)
+	// para que el armado sea distribuible.
 	const armadoPosible = $derived.by(() => {
 		const n = inscripciones.length;
+		const cupos = categoria?.cupos ?? null;
+		if (cupos !== null) {
+			if (n < cupos) {
+				return {
+					ok: false as const,
+					motivo: `Faltan ${cupos - n} ${cupos - n === 1 ? 'inscripción' : 'inscripciones'} para completar el cupo (${n}/${cupos}).`
+				};
+			}
+			return { ok: true as const };
+		}
 		if (n < 3)
-			return { ok: false as const, motivo: 'Se necesitan al menos 3 inscripciones.' };
+			return {
+				ok: false as const,
+				motivo: 'Se necesitan al menos 3 inscripciones.'
+			};
 		if (n === 5)
 			return {
 				ok: false as const,
@@ -299,23 +317,96 @@
 		</header>
 
 		{#if !estaArmada}
-			<div
-				class="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
-			>
-				<i class="bi bi-diagram-3 text-4xl text-gray-300 dark:text-gray-600"></i>
-				<p class="mt-3 font-medium">
-					{#if !armadoPosible.ok}
-						{armadoPosible.motivo}
+			{#if previewZonas}
+				<!-- Vista previa basada en la estructura preferida de la
+				     categoria. Cuando se arma con inscripciones reales, los
+				     nombres genericos se reemplazan por las parejas concretas. -->
+				<div class="mb-3 flex items-start gap-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-300">
+					<i class="bi bi-eye mt-0.5 text-base text-gray-500 dark:text-gray-400"></i>
+					<div class="flex-1">
+						<p class="font-semibold">Vista previa</p>
+						<p class="opacity-80">
+							Así se va a ver cuando armes con inscripciones reales. Los nombres genéricos
+							("Pareja 01"...) se reemplazan por las parejas concretas según ranking.
+						</p>
+					</div>
+				</div>
+
+				<ul class="space-y-2">
+					{#each previewZonas as z (z.letra)}
+						<li class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+							<div class="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
+								<span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-xs font-bold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+									{z.letra}
+								</span>
+								<span class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+									Zona {z.letra}
+								</span>
+								<span class="ml-auto text-[10px] text-gray-500 dark:text-gray-400">
+									{z.parejas.length} parejas · {z.partidos.length} partidos
+								</span>
+							</div>
+							<div class="grid grid-cols-1 gap-0 sm:grid-cols-2">
+								<!-- Composicion -->
+								<div class="border-b border-gray-100 p-3 sm:border-r sm:border-b-0 dark:border-gray-800">
+									<p class="mb-1.5 text-[10px] font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
+										Composición
+									</p>
+									<ol class="space-y-0.5">
+										{#each z.parejas as p, i (i)}
+											<li class="flex items-baseline gap-2 text-xs">
+												<span class="w-4 shrink-0 font-mono text-gray-400">{i + 1}</span>
+												<span class="text-gray-700 dark:text-gray-300">{p}</span>
+											</li>
+										{/each}
+									</ol>
+								</div>
+								<!-- Partidos -->
+								<div class="p-3">
+									<p class="mb-1.5 text-[10px] font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
+										Partidos
+									</p>
+									<ol class="space-y-0.5">
+										{#each z.partidos as p (p.numero)}
+											<li class="flex items-baseline gap-2 text-xs">
+												<span class="w-6 shrink-0 font-mono text-gray-400">P{p.numero}</span>
+												<span class="text-gray-700 dark:text-gray-300">{p.label}</span>
+											</li>
+										{/each}
+									</ol>
+								</div>
+							</div>
+						</li>
+					{/each}
+				</ul>
+
+				<p class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
+					{#if armadoPosible.ok}
+						Cuando tengas las {inscripciones.length} inscripciones cargadas, apretá
+						<strong>Armar zonas</strong>.
 					{:else}
-						Listo para armar
+						{armadoPosible.motivo}
 					{/if}
 				</p>
-				{#if armadoPosible.ok}
-					<p class="text-sm">
-						Apretá <strong>Armar zonas</strong> para elegir el formato.
+			{:else}
+				<div
+					class="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+				>
+					<i class="bi bi-diagram-3 text-4xl text-gray-300 dark:text-gray-600"></i>
+					<p class="mt-3 font-medium">
+						{#if !armadoPosible.ok}
+							{armadoPosible.motivo}
+						{:else}
+							Listo para armar
+						{/if}
 					</p>
-				{/if}
-			</div>
+					{#if armadoPosible.ok}
+						<p class="text-sm">
+							Apretá <strong>Armar zonas</strong> para elegir el formato.
+						</p>
+					{/if}
+				</div>
+			{/if}
 		{:else}
 			<!-- Banner inscripciones sin asignar. -->
 			{#if inscripcionesSinZona.length > 0}
@@ -358,7 +449,6 @@
 					<li>
 						<a
 							href={`/torneos/${tid}/categorias/${cid}/zonas/${z.id}`}
-							style="border-left: 4px solid {colorPorLetra(z.letra)};"
 							class="block overflow-hidden rounded-xl border border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
 						>
 							<div class="flex items-center gap-3 px-4 py-3">

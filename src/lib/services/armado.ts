@@ -22,8 +22,10 @@ import {
 	generarPartidosDeZona,
 	reconciliarPartidos
 } from '$lib/zonas/algoritmo';
+import { armarBracket } from '$lib/bracket/algoritmo';
 import type {
 	ArmadoConfig,
+	BracketConfig,
 	ModalidadZona4,
 	Partido,
 	ResultadoPartido,
@@ -140,11 +142,47 @@ export async function armarZonasCategoria(
 		}
 	}
 
+	// Auto-armar el bracket eliminatorio en el mismo batch. La estructura es
+	// totalmente determinista a partir de las zonas + clasifican, asi que no
+	// tiene sentido pedirle al admin un paso extra. Si despues quiere otro
+	// sembrado, puede re-armar desde la pantalla del bracket.
+	//
+	// Pasamos las zonas que acabamos de crear (en memoria) al algoritmo de
+	// bracket. Cada zona aporta su letra + clasifican (ya capeado por tamano).
+	const zonasParaBracket = zonasArmadas.map((z) => ({
+		letra: z.letra,
+		clasifican: Math.min(config.clasificanPorZona, z.tamano - 1) as 1 | 2 | 3
+	}));
+	const bracketArmado = armarBracket(zonasParaBracket);
+	const bracketId = doc(partidosCol(torneoId, categoriaId)).id;
+	for (const plantilla of bracketArmado.partidos) {
+		const docRef = doc(partidosCol(torneoId, categoriaId));
+		batch.set(docRef, {
+			categoriaId,
+			zonaId: null,
+			bracketId,
+			fase: plantilla.fase,
+			numeroEnZona: plantilla.numeroEnZona,
+			ronda: plantilla.ronda,
+			posicionEnRonda: plantilla.posicionEnRonda,
+			pareja1Ref: plantilla.pareja1Ref,
+			pareja2Ref: plantilla.pareja2Ref,
+			resultado: null,
+			estado: 'Pendiente',
+			creadoEn: ahora
+		} satisfies Omit<Partido, 'id'>);
+	}
+
 	// Persistir la config en la categoria. Asi sabemos que esta armada y con
 	// que parametros.
 	const armadoConfig: ArmadoConfig = { ...config, armadoEn: ahora };
+	const bracketConfig: BracketConfig = {
+		cantidadParejas: bracketArmado.cantidadParejas,
+		armadoEn: ahora
+	};
 	batch.update(categoriaDoc(torneoId, categoriaId), {
-		armadoConfig
+		armadoConfig,
+		bracketConfig
 	});
 
 	await batch.commit();

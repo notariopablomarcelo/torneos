@@ -2,12 +2,14 @@
 	import { untrack } from 'svelte';
 	import {
 		inscripcionInputSchema,
+		type BloqueoJugador,
 		type InscripcionInput
 	} from '$lib/types/inscripcion';
 	import type { Jugador } from '$lib/types/jugador';
 	import { sustantivoInscripcion } from '$lib/types/torneo';
 	import TextField from './TextField.svelte';
 	import JugadorSelector from './JugadorSelector.svelte';
+	import { etiquetaFechaCorta } from '$lib/dates';
 
 	type Props = {
 		initial: InscripcionInput;
@@ -20,6 +22,11 @@
 		// categoria. Se excluyen del picker pero se siguen resolviendo si
 		// vienen como value (no muestra "Jugador no encontrado" por accidente).
 		excluirGlobal?: string[];
+		// Fechas del torneo (YYYY-MM-DD) — necesarias para mostrar los dias en
+		// los que el jugador puede declarar bloqueos. Si esta vacio, la
+		// seccion de bloqueos no se muestra (caso fallback / contexto sin
+		// fechas).
+		fechasTorneo?: string[];
 		submitLabel?: string;
 		onSubmit: (data: InscripcionInput) => Promise<void>;
 		onCancel?: () => void;
@@ -34,6 +41,7 @@
 		cantidadJugadores,
 		jugadores,
 		excluirGlobal = [],
+		fechasTorneo = [],
 		submitLabel = 'Guardar',
 		onSubmit,
 		onCancel,
@@ -62,6 +70,99 @@
 		Array.from({ length: cantSeed }, (_, i) => seed.jugadores[i] ?? null)
 	);
 	let rankingStr = $state(seed.ranking === null ? '' : String(seed.ranking));
+
+	// Bloqueos por jugador. Estado local indexado por jugadorId para que el
+	// toggle y el redraw sean O(1). Cada entrada es la lista de bloqueos
+	// horarios de ese jugador para este torneo. Al cambiar el jugador de un
+	// slot (slot.onChange), los bloqueos del jugador SALIENTE se descartan
+	// para no mandar bloqueos huerfanos al guardar.
+	let bloqueosPorJugador = $state<Record<string, BloqueoJugador[]>>(
+		(() => {
+			const inicial: Record<string, BloqueoJugador[]> = {};
+			for (const b of seed.bloqueosJugadores ?? []) {
+				const arr = inicial[b.jugadorId] ?? [];
+				arr.push(b);
+				inicial[b.jugadorId] = arr;
+			}
+			return inicial;
+		})()
+	);
+
+	const jugadoresPorId = $derived(new Map(jugadores.map((j) => [j.id, j])));
+
+	function nombreDe(jid: string): string {
+		return jugadoresPorId.get(jid)?.nombreCompleto ?? 'Jugador';
+	}
+
+	function bloqueosDe(jid: string, fecha: string): BloqueoJugador[] {
+		return (bloqueosPorJugador[jid] ?? []).filter((b) => b.fecha === fecha);
+	}
+
+	function agregarBloqueo(jid: string, fecha: string) {
+		const arr = bloqueosPorJugador[jid] ?? [];
+		bloqueosPorJugador = {
+			...bloqueosPorJugador,
+			[jid]: [...arr, { jugadorId: jid, fecha, desde: '12:00', hasta: '14:00' }]
+		};
+	}
+
+	function setBloqueoCampo(
+		jid: string,
+		fecha: string,
+		indiceEnFecha: number,
+		campo: 'desde' | 'hasta',
+		valor: string
+	) {
+		const todos = bloqueosPorJugador[jid] ?? [];
+		const nuevos: BloqueoJugador[] = [];
+		let i = 0;
+		for (const b of todos) {
+			if (b.fecha === fecha && i === indiceEnFecha) {
+				nuevos.push({ ...b, [campo]: valor });
+				i += 1;
+			} else {
+				if (b.fecha === fecha) i += 1;
+				nuevos.push(b);
+			}
+		}
+		bloqueosPorJugador = { ...bloqueosPorJugador, [jid]: nuevos };
+	}
+
+	function quitarBloqueo(jid: string, fecha: string, indiceEnFecha: number) {
+		const todos = bloqueosPorJugador[jid] ?? [];
+		const nuevos: BloqueoJugador[] = [];
+		let i = 0;
+		for (const b of todos) {
+			if (b.fecha === fecha && i === indiceEnFecha) {
+				i += 1;
+				continue;
+			}
+			if (b.fecha === fecha) i += 1;
+			nuevos.push(b);
+		}
+		bloqueosPorJugador = { ...bloqueosPorJugador, [jid]: nuevos };
+	}
+
+	// Al cambiar de jugador en un slot, limpiamos los bloqueos del jugador
+	// que salio (si ya no esta en ningun slot). Asi al guardar no quedan
+	// bloqueos huerfanos referenciando jugadores que no estan en la
+	// inscripcion.
+	function onCambioJugador(slot: number, nuevoId: string | null) {
+		const anterior = jugadoresSel[slot];
+		jugadoresSel[slot] = nuevoId;
+		if (anterior && !jugadoresSel.some((id, i) => i !== slot && id === anterior)) {
+			const { [anterior]: _eliminar, ...resto } = bloqueosPorJugador;
+			void _eliminar;
+			bloqueosPorJugador = resto;
+		}
+	}
+
+	// Para el toggle UI de "mostrar bloqueos del jugador X".
+	let bloqueosAbiertos = $state<Record<string, boolean>>({});
+
+	function contarBloqueos(jid: string): number {
+		return (bloqueosPorJugador[jid] ?? []).length;
+	}
 
 	// Si la cantidad cambia mientras el form vive (raro pero posible si el
 	// padre cambia la categoria sin remount), redimensionar preservando los
@@ -125,7 +226,26 @@
 			ranking = r;
 		}
 
-		const parsed = inscripcionInputSchema.safeParse({ jugadores: ids, ranking });
+		// Recolectar TODOS los bloqueos de jugadores que siguen en la
+		// inscripcion (los huerfanos ya se limpian en onCambioJugador).
+		const bloqueosFlat: BloqueoJugador[] = [];
+		for (const jid of ids) {
+			const arr = bloqueosPorJugador[jid] ?? [];
+			for (const b of arr) {
+				// Defensa: descartar bloqueos con rango invalido (desde >= hasta)
+				// o fecha vacia. La validacion Zod tambien lo rechaza, pero
+				// preferimos no enviar ruido.
+				if (b.desde && b.hasta && b.fecha) {
+					bloqueosFlat.push(b);
+				}
+			}
+		}
+
+		const parsed = inscripcionInputSchema.safeParse({
+			jugadores: ids,
+			ranking,
+			bloqueosJugadores: bloqueosFlat.length > 0 ? bloqueosFlat : undefined
+		});
 		if (!parsed.success) {
 			errores = parsed.error.flatten().fieldErrors;
 			return;
@@ -167,17 +287,96 @@
 
 <form onsubmit={handleSubmit} class="space-y-4">
 	{#each Array(cantidadJugadores) as _, i (i)}
-		<JugadorSelector
-			id={`insc-jug-${i}`}
-			label={cantidadJugadores === 1 ? 'Jugador' : `Jugador ${i + 1}`}
-			value={jugadoresSel[i]}
-			onChange={(id) => {
-				jugadoresSel[i] = id;
-			}}
-			{jugadores}
-			excluir={excluirPara(i)}
-			error={i === 0 ? err('jugadores') : null}
-		/>
+		{@const jid = jugadoresSel[i]}
+		<div class="space-y-2">
+			<JugadorSelector
+				id={`insc-jug-${i}`}
+				label={cantidadJugadores === 1 ? 'Jugador' : `Jugador ${i + 1}`}
+				value={jid}
+				onChange={(id) => onCambioJugador(i, id)}
+				{jugadores}
+				excluir={excluirPara(i)}
+				error={i === 0 ? err('jugadores') : null}
+			/>
+
+			<!-- Bloqueos horarios: solo si hay jugador asignado y el form
+			     recibio las fechas del torneo. -->
+			{#if jid && fechasTorneo.length > 0}
+				{@const total = contarBloqueos(jid)}
+				<details
+					bind:open={bloqueosAbiertos[jid]}
+					class="rounded-lg border border-dashed border-gray-300 dark:border-gray-700"
+				>
+					<summary class="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs">
+						<i class="bi bi-clock-history text-gray-500 dark:text-gray-400"></i>
+						<span class="text-gray-700 dark:text-gray-300">
+							Bloqueos de horarios de {nombreDe(jid)} (opcional)
+						</span>
+						{#if total > 0}
+							<span class="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+								{total}
+							</span>
+						{/if}
+					</summary>
+					<div class="space-y-2 border-t border-gray-100 p-3 dark:border-gray-800">
+						<p class="text-[11px] text-gray-500 dark:text-gray-400">
+							Marcá los rangos en que <strong>NO</strong> puede jugar. Lo demás se asume disponible.
+						</p>
+						<ul class="space-y-2">
+							{#each fechasTorneo as fecha (fecha)}
+								{@const rangos = bloqueosDe(jid, fecha)}
+								<li class="rounded-md border border-gray-100 bg-gray-50 p-2 dark:border-gray-800 dark:bg-gray-800/50">
+									<div class="mb-1 flex items-center justify-between gap-2">
+										<span class="text-[11px] font-medium text-gray-700 dark:text-gray-300">
+											{etiquetaFechaCorta(fecha)}
+										</span>
+										<button
+											type="button"
+											onclick={() => agregarBloqueo(jid, fecha)}
+											class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-900/40"
+										>
+											<i class="bi bi-plus-lg text-[9px]"></i>
+											Bloqueo
+										</button>
+									</div>
+									{#if rangos.length > 0}
+										<ul class="space-y-1">
+											{#each rangos as r, idx (idx)}
+												<li class="flex items-center gap-1.5">
+													<input
+														type="time"
+														value={r.desde}
+														onchange={(e) =>
+															setBloqueoCampo(jid, fecha, idx, 'desde', e.currentTarget.value)}
+														class="w-20 rounded border border-gray-300 bg-white px-1.5 py-0.5 text-xs dark:border-gray-700 dark:bg-gray-900"
+													/>
+													<span class="text-[10px] text-gray-400">a</span>
+													<input
+														type="time"
+														value={r.hasta}
+														onchange={(e) =>
+															setBloqueoCampo(jid, fecha, idx, 'hasta', e.currentTarget.value)}
+														class="w-20 rounded border border-gray-300 bg-white px-1.5 py-0.5 text-xs dark:border-gray-700 dark:bg-gray-900"
+													/>
+													<button
+														type="button"
+														onclick={() => quitarBloqueo(jid, fecha, idx)}
+														aria-label="Quitar bloqueo"
+														class="ml-auto rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/40 dark:hover:text-red-400"
+													>
+														<i class="bi bi-x text-xs"></i>
+													</button>
+												</li>
+											{/each}
+										</ul>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				</details>
+			{/if}
+		</div>
 	{/each}
 
 	<TextField

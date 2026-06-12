@@ -1,5 +1,16 @@
 import { z } from 'zod';
-import type { ArmadoConfig } from './armado';
+import type {
+	ArmadoConfig,
+	BracketConfig,
+	Clasifican,
+	ModalidadZona4,
+	TamanoZona
+} from './armado';
+import {
+	clasificanSchema,
+	modalidadZona4Schema,
+	tamanoZonaSchema
+} from './armado';
 
 // Esquemas de validacion + tipos del dominio. Los esquemas "input" son los
 // datos que entran por formulario; los tipos completos suman id y creadoEn
@@ -64,7 +75,14 @@ export const categoriaInputSchema = z.object({
 	cupos: z.number().int().positive().nullable(),
 	// cantidadJugadores define el tamano de cada inscripcion (1 = singles,
 	// 2 = pareja/dobles, 3+ = equipo). Default 2 para padel. Acota 1..6.
-	cantidadJugadores: z.number().int().min(1).max(6)
+	cantidadJugadores: z.number().int().min(1).max(6),
+	// Estructura preferida (opcional). Sirve de default para el armado y se
+	// usa para estimar la cantidad de partidos antes de tener inscripciones.
+	// Cualquiera de los tres puede quedar sin definir: la estimacion usa el
+	// mejor dato disponible.
+	tamanoPreferido: tamanoZonaSchema.nullable().optional(),
+	modalidadZona4: modalidadZona4Schema.nullable().optional(),
+	clasificanPorZona: clasificanSchema.nullable().optional()
 });
 
 export type CategoriaInput = z.infer<typeof categoriaInputSchema>;
@@ -77,6 +95,8 @@ export type Categoria = CategoriaInput & {
 	// undefined => no armada. Solo lo toca el servicio de armado, no el form
 	// de CategoriaForm.
 	armadoConfig?: ArmadoConfig | null;
+	// Idem para el bracket eliminatorio. null o undefined => no armado.
+	bracketConfig?: BracketConfig | null;
 };
 
 // Nombre derivado a partir de nivel + genero. Se usa en todas las vistas
