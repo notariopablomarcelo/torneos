@@ -295,6 +295,39 @@
 		const finMin = inicioMin + DURACION_MIN;
 		return `${horaInicio} – ${minutosAHora(finMin)}`;
 	}
+
+	// Bloques libres: huecos dentro de los rangos disponibles donde no hay
+	// partidos programados. Render gris, label "Libre HH:MM a HH:MM".
+	function bloquesLibres(
+		c: ColumnaCancha
+	): { desdeMin: number; hastaMin: number }[] {
+		const out: { desdeMin: number; hastaMin: number }[] = [];
+		const ocupados = partidosDeCancha(c.canchaId)
+			.map((p) => {
+				const ini = inicioMinVisual(p.programacion!);
+				return ini === null
+					? null
+					: { desdeMin: ini, hastaMin: ini + DURACION_MIN };
+			})
+			.filter((x): x is { desdeMin: number; hastaMin: number } => x !== null)
+			.sort((a, b) => a.desdeMin - b.desdeMin);
+		for (const r of c.rangos) {
+			let cursor = r.desdeMin;
+			for (const p of ocupados) {
+				if (p.hastaMin <= r.desdeMin) continue;
+				if (p.desdeMin >= r.hastaMin) break;
+				const ini = Math.max(p.desdeMin, r.desdeMin);
+				if (ini > cursor) {
+					out.push({ desdeMin: cursor, hastaMin: ini });
+				}
+				cursor = Math.max(cursor, Math.min(p.hastaMin, r.hastaMin));
+			}
+			if (cursor < r.hastaMin) {
+				out.push({ desdeMin: cursor, hastaMin: r.hastaMin });
+			}
+		}
+		return out;
+	}
 </script>
 
 {#if columnas.length === 0}
@@ -362,7 +395,7 @@
 					     después de los rangos de la cancha. -->
 					{#each areasNoDisponibles(c) as area, i (i)}
 						<div
-							class="absolute right-0 left-0 bg-gray-100 dark:bg-gray-800/60"
+							class="area-no-disp absolute right-0 left-0"
 							style="top: {(area.topMin / 60) * ROW_H + PAD_Y}px; height: {(area.altoMin / 60) * ROW_H}px"
 						></div>
 					{/each}
@@ -374,6 +407,22 @@
 							class="absolute right-0 left-0 border-t border-gray-100 dark:border-gray-800"
 							style="top: {top}px"
 						></div>
+					{/each}
+
+					<!-- Bloques libres: huecos dentro de la disponibilidad sin
+					     partido. Render gris con label "Libre HH:MM a HH:MM". -->
+					{#each bloquesLibres(c) as libre, i (i)}
+						{@const topL = topPxDeMin(libre.desdeMin)}
+						{@const altoL =
+							((libre.hastaMin - libre.desdeMin) / 60) * ROW_H}
+						<div
+							class="absolute overflow-hidden rounded border border-dashed border-gray-300 bg-gray-100/80 px-2 py-1 text-[10px] leading-tight text-gray-500 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400"
+							style="top: {topL + 2}px; left: 2px; right: 2px; height: {altoL - 4}px;"
+						>
+							<p class="truncate font-medium">
+								Libre {minutosAHora(libre.desdeMin)} a {minutosAHora(libre.hastaMin)} | {libre.hastaMin - libre.desdeMin} min
+							</p>
+						</div>
 					{/each}
 
 					<!-- Bloques de partidos. -->
@@ -459,3 +508,24 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	/* "No disponible" — patron rayado diagonal sutil. Se distingue claramente
+	   del fondo blanco de los rangos disponibles sin opacar la grilla. */
+	.area-no-disp {
+		background-color: rgb(156 163 175 / 0.14);
+		background-image: repeating-linear-gradient(
+			135deg,
+			transparent 0 6px,
+			rgb(107 114 128 / 0.22) 6px 7px
+		);
+	}
+	:global(.dark) .area-no-disp {
+		background-color: rgb(30 41 59 / 0.7);
+		background-image: repeating-linear-gradient(
+			135deg,
+			transparent 0 6px,
+			rgb(148 163 184 / 0.18) 6px 7px
+		);
+	}
+</style>

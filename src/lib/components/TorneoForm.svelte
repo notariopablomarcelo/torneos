@@ -9,9 +9,17 @@
 		onSubmit: (data: TorneoInput) => Promise<void>;
 		onCancel?: () => void;
 		onTest?: () => TorneoInput;
+		autofocusNombre?: boolean;
 	};
 
-	let { initial, submitLabel = 'Guardar', onSubmit, onCancel, onTest }: Props = $props();
+	let {
+		initial,
+		submitLabel = 'Guardar',
+		onSubmit,
+		onCancel,
+		onTest,
+		autofocusNombre = false
+	}: Props = $props();
 
 	// El form solo toma initial como valores iniciales; cambios posteriores
 	// del padre no se reflejan (es por diseño). untrack rompe el rastreo
@@ -67,7 +75,13 @@
 </script>
 
 <form onsubmit={handleSubmit} class="space-y-4">
-	<TextField id="tor-nombre" label="Nombre del torneo" bind:value={nombre} error={err('nombre')} />
+	<TextField
+		id="tor-nombre"
+		label="Nombre del torneo"
+		bind:value={nombre}
+		error={err('nombre')}
+		autofocus={autofocusNombre}
+	/>
 
 	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 		<TextField

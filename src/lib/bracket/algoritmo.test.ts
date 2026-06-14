@@ -593,3 +593,130 @@ describe('armarBracketDesdeSlots · uso directo', () => {
 		expect(tiene1AvC1).toBe(true);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Play-ins: cuadro expandido con rondas extras antes del cuadro natural
+// ---------------------------------------------------------------------------
+
+describe('armarBracketDesdeSlots · play-ins (cuadro expandido)', () => {
+	function refPos(letra: string, pos: 1 | 2 | 3): ParejaRef {
+		return { tipo: 'PosicionZona', letraZona: letra, posicion: pos };
+	}
+
+	it('8 parejas en cuadro de 16 con 1 play-in → fases Play-in 1 / 4tos / Semis / Final', () => {
+		// Caso del usuario: 8 parejas reales pero cuadro expandido a 16.
+		// A1 tiene doble bye (R1 + R2). D1 y A2 juegan el play-in. D2 espera
+		// en R2 (4tos) al ganador del play-in. B1, C2, C1, B2 distribuidos
+		// en slots alternados → cada uno sube por bye R1 y se enfrenta en R2.
+		const b = armarBracketDesdeSlots([
+			refPos('A', 1), // slot 0: A1 (doble bye)
+			null,           // slot 1: vacio par-de-A1
+			null,           // slot 2: par-vacio
+			null,           // slot 3: par-vacio
+			refPos('D', 1), // slot 4: D1
+			refPos('A', 2), // slot 5: A2 → play-in D1 vs A2
+			refPos('D', 2), // slot 6: D2 (espera en R2)
+			null,           // slot 7: vacio par-de-D2
+			refPos('B', 1), // slot 8: B1 (bye R1)
+			null,           // slot 9
+			refPos('C', 2), // slot 10: C2 (bye R1) → R2 = B1 vs C2
+			null,           // slot 11
+			refPos('C', 1), // slot 12: C1 (bye R1)
+			null,           // slot 13
+			refPos('B', 2), // slot 14: B2 (bye R1) → R2 = C1 vs B2
+			null            // slot 15
+		]);
+		expect(b.cantidadParejas).toBe(8);
+		expect(b.cantidadParejasCuadro).toBe(16);
+
+		// Rondas presentes (deduplicadas).
+		const fases = new Set(b.partidos.map((p) => p.fase));
+		expect(fases.has('Play-in 1')).toBe(true);
+		expect(fases.has('4tos')).toBe(true);
+		expect(fases.has('Semis')).toBe(true);
+		expect(fases.has('Final')).toBe(true);
+		expect(fases.has('8vos')).toBe(false); // R1 ya no es 8vos — es play-in.
+
+		// R1 tiene un solo partido (el play-in) — el resto son byes.
+		const r1 = b.partidos.filter((p) => p.ronda === 1);
+		expect(r1.length).toBe(1);
+		expect(r1[0]!.fase).toBe('Play-in 1');
+
+		// R2 tiene 3 partidos (4tos reales: D2 vs G(play-in), B1 vs C2, C1 vs B2).
+		const r2 = b.partidos.filter((p) => p.ronda === 2);
+		expect(r2.length).toBe(3);
+		expect(r2.every((p) => p.fase === '4tos')).toBe(true);
+
+		// R3 = Semis. A1 entra directo (doble bye).
+		const r3 = b.partidos.filter((p) => p.ronda === 3);
+		expect(r3.length).toBe(2);
+		expect(r3.every((p) => p.fase === 'Semis')).toBe(true);
+
+		// R4 = Final.
+		const r4 = b.partidos.filter((p) => p.ronda === 4);
+		expect(r4.length).toBe(1);
+		expect(r4[0]!.fase).toBe('Final');
+	});
+
+	it('8 parejas en cuadro de 32 con 2 play-ins → Play-in 2 / Play-in 1 / 4tos / Semis / Final', () => {
+		// Cuadro de 32 con solo 8 parejas reales (caso teorico de 2 rondas extras).
+		// Las 8 parejas van todas a R3 (que es 4tos natural). En R1 y R2 hay
+		// solo play-ins / byes propagados.
+		const slots: (ParejaRef | null)[] = new Array(32).fill(null);
+		// Distribuyo 8 parejas estilo simetrico para validar fases.
+		slots[0] = refPos('A', 1);
+		slots[4] = refPos('B', 1);
+		slots[8] = refPos('C', 1);
+		slots[12] = refPos('D', 1);
+		slots[16] = refPos('A', 2);
+		slots[20] = refPos('B', 2);
+		slots[24] = refPos('C', 2);
+		slots[28] = refPos('D', 2);
+		const b = armarBracketDesdeSlots(slots);
+		expect(b.cantidadParejasCuadro).toBe(32);
+
+		const fases = new Set(b.partidos.map((p) => p.fase));
+		// No hay partidos reales en R1 ni R2 (cada par tiene 1 ref + 1 null →
+		// la ref sube directo) pero hay partidos en 4tos cuando finalmente
+		// dos refs se emparejan.
+		expect(fases.has('4tos')).toBe(true);
+		expect(fases.has('Semis')).toBe(true);
+		expect(fases.has('Final')).toBe(true);
+	});
+
+	it('cuadro natural (sin expandir): fases estandar sin play-ins', () => {
+		// 8 parejas en cuadro de 8 → no hay play-ins, fases estandar.
+		const b = armarBracketDesdeSlots([
+			refPos('A', 1),
+			refPos('B', 1),
+			refPos('A', 2),
+			refPos('B', 2),
+			refPos('A', 3),
+			refPos('C', 1),
+			refPos('B', 3),
+			refPos('C', 2)
+		]);
+		const fases = b.partidos.map((p) => p.fase);
+		expect(fases).not.toContain('Play-in 1');
+		expect(fases).not.toContain('Play-in 2');
+		expect(fases.filter((f) => f === '4tos').length).toBe(4);
+		expect(fases.filter((f) => f === 'Semis').length).toBe(2);
+		expect(fases.filter((f) => f === 'Final').length).toBe(1);
+	});
+
+	it('armarBracket (snake clasico) sigue produciendo fases estandar', () => {
+		// El path snake no toca el cuadro expandido — verificamos que no
+		// se cuelan Play-ins por error.
+		const b = armarBracket([
+			{ letra: 'A', clasifican: 2 },
+			{ letra: 'B', clasifican: 2 },
+			{ letra: 'C', clasifican: 2 },
+			{ letra: 'D', clasifican: 2 }
+		]);
+		expect(b.cantidadParejas).toBe(8);
+		expect(b.cantidadParejasCuadro).toBe(8);
+		const fases = b.partidos.map((p) => p.fase);
+		expect(fases).not.toContain('Play-in 1');
+		expect(fases.filter((f) => f === '4tos').length).toBe(4);
+	});
+});

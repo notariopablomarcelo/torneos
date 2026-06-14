@@ -47,6 +47,7 @@
 			submitLabel="Crear"
 			onSubmit={handleSubmit}
 			onCancel={handleCancel}
+			autofocusNombre
 			{onTest}
 		/>
 	</div>

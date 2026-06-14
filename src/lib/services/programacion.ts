@@ -62,6 +62,30 @@ export function suscribirTodasLasCanchas(
 	});
 }
 
+// Suscripcion al "uso" global de canchas: que canchas/sedes son referenciadas
+// por algun TorneoCancha. Lo usamos en la pantalla de Sedes para bloquear el
+// borrado de canchas o sedes que estan siendo usadas por algun torneo.
+//
+// Reusa la misma estrategia de `suscribirTodasLasCanchas`: collectionGroup
+// sobre `canchas`, pero filtrando los docs que viven bajo `torneos/`
+// (TorneoCancha) — la inversion de la condicion de path.
+export function suscribirUsosDeCanchas(
+	callback: (usos: { canchaIds: Set<string>; sedeIds: Set<string> }) => void
+): () => void {
+	const q = query(collectionGroup(db(), 'canchas'));
+	return onSnapshot(q, (snap) => {
+		const canchaIds = new Set<string>();
+		const sedeIds = new Set<string>();
+		for (const d of snap.docs) {
+			if (!d.ref.path.startsWith('torneos/')) continue;
+			const data = d.data() as { canchaId?: string; sedeId?: string };
+			if (data.canchaId) canchaIds.add(data.canchaId);
+			if (data.sedeId) sedeIds.add(data.sedeId);
+		}
+		callback({ canchaIds, sedeIds });
+	});
+}
+
 // =============================================================================
 // TorneoCancha
 // =============================================================================

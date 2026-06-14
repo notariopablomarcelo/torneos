@@ -14,7 +14,7 @@
 		suscribirCanchasDelTorneo,
 		suscribirTodasLasCanchas
 	} from '$lib/services/programacion';
-	import { etiquetaFechaCorta, rangoFechasInclusivo } from '$lib/dates';
+	import { etiquetaFechaCorta, rangoFechasInclusivo, sumarDiasISO } from '$lib/dates';
 	import type { Cancha, Sede } from '$lib/types/sede';
 	import type { TorneoCancha, RangoHorario } from '$lib/types/programacion';
 	import { RANGO_DEFAULT } from '$lib/types/programacion';
@@ -44,6 +44,7 @@
 	const fechasTorneo = $derived(
 		torneo ? rangoFechasInclusivo(torneo.fechaInicio, torneo.fechaFin) : []
 	);
+	const fechasTorneoSet = $derived(new Set(fechasTorneo));
 
 	$effect(() => {
 		const tid = id;
@@ -126,7 +127,16 @@
 		}
 	}
 
-	// Agrupar canchas globales por sede para el modal.
+	// Collator natural para ordenar nombres con numeros (Cancha 2 antes que
+	// Cancha 10). Tambien para nombres de sede.
+	const colatorNatural = new Intl.Collator(undefined, {
+		numeric: true,
+		sensitivity: 'base'
+	});
+
+	// Agrupar canchas globales por sede para el modal. Mostramos TODAS las
+	// sedes del sistema (incluso las sin canchas todavia) — asi el organizador
+	// ve el listado completo. Sedes alfabeticas, canchas alfabeticas dentro.
 	const canchasAgrupadas = $derived.by(() => {
 		const map = new Map<string, Cancha[]>();
 		for (const c of canchasGlobales) {
@@ -134,14 +144,36 @@
 			arr.push(c);
 			map.set(c.sedeId, arr);
 		}
-		return sedes
+		return [...sedes]
+			.sort((a, b) => colatorNatural.compare(a.nombre, b.nombre))
 			.map((s) => ({
 				sede: s,
 				canchas: (map.get(s.id) ?? []).sort((a, b) =>
-					a.nombre.localeCompare(b.nombre)
+					colatorNatural.compare(a.nombre, b.nombre)
 				)
+			}));
+	});
+
+	// Agrupar canchas del torneo por sede (con disponibilidad). Misma logica
+	// que canchasAgrupadas pero sobre canchasTorneo en lugar de globales.
+	const canchasTorneoAgrupadas = $derived.by(() => {
+		const map = new Map<string, TorneoCancha[]>();
+		for (const tc of canchasTorneo) {
+			const arr = map.get(tc.sedeId) ?? [];
+			arr.push(tc);
+			map.set(tc.sedeId, arr);
+		}
+		return [...sedes]
+			.sort((a, b) => colatorNatural.compare(a.nombre, b.nombre))
+			.map((s) => ({
+				sede: s,
+				items: (map.get(s.id) ?? []).sort((a, b) => {
+					const na = canchasPorId.get(a.canchaId)?.nombre ?? '';
+					const nb = canchasPorId.get(b.canchaId)?.nombre ?? '';
+					return colatorNatural.compare(na, nb);
+				})
 			}))
-			.filter((g) => g.canchas.length > 0);
+			.filter((g) => g.items.length > 0);
 	});
 
 	// =====
@@ -199,6 +231,28 @@
 		await actualizarDisponibilidad(id, tc.id, [
 			...tc.disponibilidad,
 			{ fecha, desde: RANGO_DEFAULT.desde, hasta: RANGO_DEFAULT.hasta }
+		]);
+	}
+
+	// Fechas que tiene la cancha cargadas fuera del rango del torneo —
+	// tipicamente la madrugada del dia siguiente al cierre (ej. cancha
+	// disponible hasta las 02:00 del dia D+1 cuando el torneo termina en D).
+	function fechasExtra(tc: TorneoCancha): string[] {
+		const out = new Set<string>();
+		for (const r of tc.disponibilidad) {
+			if (!fechasTorneoSet.has(r.fecha)) out.add(r.fecha);
+		}
+		return Array.from(out).sort();
+	}
+
+	// Crea una entrada para la madrugada del dia siguiente al ultimo dia del
+	// torneo. Default 00:00 - 02:00. El usuario la ajusta despues si necesita.
+	async function agregarMadrugadaSiguiente(tc: TorneoCancha) {
+		if (!torneo) return;
+		const fechaExtra = sumarDiasISO(torneo.fechaFin, 1);
+		await actualizarDisponibilidad(id, tc.id, [
+			...tc.disponibilidad,
+			{ fecha: fechaExtra, desde: '00:00', hasta: '02:00' }
 		]);
 	}
 
@@ -384,44 +438,70 @@
 				<p class="text-sm">Apretá <strong>Agregar</strong> para elegir qué canchas usa este torneo.</p>
 			</div>
 		{:else}
-			<ul class="space-y-2">
-				{#each canchasTorneo as tc (tc.id)}
-					{@const cancha = canchasPorId.get(tc.canchaId)}
-					{@const sede = sedesPorId.get(tc.sedeId)}
-					{@const expandida = expandidaId === tc.id}
-					<li class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-						<button
-							type="button"
-							onclick={() => toggleExpandida(tc.id)}
-							class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
-						>
-							<span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
-								<i class="bi bi-grid-3x3"></i>
+			<div class="space-y-3">
+				{#each canchasTorneoAgrupadas as grupo (grupo.sede.id)}
+					<details
+						class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900"
+					>
+						<summary class="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+							<span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+								<i class="bi bi-geo-alt"></i>
 							</span>
 							<div class="min-w-0 flex-1">
 								<p class="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-									{cancha?.nombre ?? 'Cancha desconocida'}
+									{grupo.sede.nombre}
 								</p>
-								<p class="truncate text-xs text-gray-500 dark:text-gray-400">
-									{sede?.nombre ?? 'Sede desconocida'}
+								<p class="text-xs text-gray-500 dark:text-gray-400">
+									{grupo.items.length}
+									{grupo.items.length === 1 ? 'cancha' : 'canchas'}
 								</p>
 							</div>
-							<i class="bi bi-chevron-down text-gray-400 transition-transform dark:text-gray-500 {expandida ? 'rotate-180' : ''}"></i>
-						</button>
+							<i class="bi bi-chevron-down shrink-0 text-gray-400 transition-transform dark:text-gray-500"></i>
+						</summary>
+						<ul class="space-y-2 border-t border-gray-100 p-3 dark:border-gray-800">
+							{#each grupo.items as tc (tc.id)}
+								{@const cancha = canchasPorId.get(tc.canchaId)}
+								{@const expandida = expandidaId === tc.id}
+								<li class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+									<button
+										type="button"
+										onclick={() => toggleExpandida(tc.id)}
+										class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+									>
+										<span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+											<i class="bi bi-grid-3x3"></i>
+										</span>
+										<div class="min-w-0 flex-1">
+											<p class="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+												{cancha?.nombre ?? 'Cancha desconocida'}
+											</p>
+										</div>
+										<i class="bi bi-chevron-down text-gray-400 transition-transform dark:text-gray-500 {expandida ? 'rotate-180' : ''}"></i>
+									</button>
 
-						{#if expandida}
+									{#if expandida}
+										{@const fechasExtraTc = fechasExtra(tc)}
 							<div class="space-y-2 border-t border-gray-100 p-4 dark:border-gray-800">
 								<p class="text-[10px] font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
 									Disponibilidad
 								</p>
 								<ul class="space-y-2">
-									{#each fechasTorneo as fecha (fecha)}
+									{#each [...fechasTorneo, ...fechasExtraTc] as fecha (fecha)}
 										{@const rangos = rangosDeFecha(tc, fecha)}
-										<li class="rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-800/50">
+										{@const esExtra = !fechasTorneoSet.has(fecha)}
+										<li class="rounded-lg border p-3 {esExtra ? 'border-amber-200 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-900/10' : 'border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50'}">
 											<div class="mb-2 flex items-center justify-between gap-2">
-												<span class="text-xs font-medium text-gray-700 dark:text-gray-300">
-													{etiquetaFechaCorta(fecha)}
-												</span>
+												<div class="flex min-w-0 items-center gap-1.5">
+													<span class="text-xs font-medium text-gray-700 dark:text-gray-300">
+														{etiquetaFechaCorta(fecha)}
+													</span>
+													{#if esExtra}
+														<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-amber-800 uppercase dark:bg-amber-900/40 dark:text-amber-300">
+															<i class="bi bi-moon-stars text-[8px]"></i>
+															Día siguiente
+														</span>
+													{/if}
+												</div>
 												<button
 													type="button"
 													onclick={() => agregarRango(tc, fecha)}
@@ -472,6 +552,17 @@
 										</li>
 									{/each}
 								</ul>
+								{#if fechasExtraTc.length === 0}
+									<button
+										type="button"
+										onclick={() => agregarMadrugadaSiguiente(tc)}
+										title="Agregar disponibilidad de la madrugada del día siguiente al torneo (ej. 00:00 a 02:00 del día posterior al cierre)"
+										class="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-amber-300 bg-amber-50/40 px-2 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100/60 dark:border-amber-800 dark:bg-amber-900/10 dark:text-amber-300 dark:hover:bg-amber-900/20"
+									>
+										<i class="bi bi-moon-stars text-[10px]"></i>
+										Agregar madrugada del día siguiente
+									</button>
+								{/if}
 								<div class="flex justify-end pt-2">
 									<button
 										type="button"
@@ -484,9 +575,12 @@
 								</div>
 							</div>
 						{/if}
-					</li>
+								</li>
+							{/each}
+						</ul>
+					</details>
 				{/each}
-			</ul>
+			</div>
 		{/if}
 	{/if}
 </div>
@@ -502,35 +596,60 @@
 			No hay canchas disponibles.
 		</p>
 	{:else}
-		<div class="space-y-4">
+		<div class="space-y-2">
 			{#each canchasAgrupadas as grupo (grupo.sede.id)}
-				<div>
-					<p class="mb-2 text-[10px] font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
-						{grupo.sede.nombre}
-					</p>
-					<ul class="space-y-1.5">
-						{#each grupo.canchas as cancha (cancha.id)}
-							{@const checked = seleccion.has(cancha.id)}
-							<li>
-								<label
-									class="flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition {checked
-										? 'border-brand-500 bg-brand-50 dark:border-brand-700 dark:bg-brand-900/40'
-										: 'border-gray-200 bg-white hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'}"
-								>
-									<input
-										type="checkbox"
-										checked={checked}
-										onchange={() => toggleSeleccion(cancha.id)}
-										class="h-4 w-4 shrink-0 rounded border-gray-300 text-brand-500 focus:ring-brand-200 dark:border-gray-700"
-									/>
-									<span class="min-w-0 flex-1 truncate font-medium text-gray-900 dark:text-gray-100">
-										{cancha.nombre}
-									</span>
-								</label>
-							</li>
-						{/each}
-					</ul>
-				</div>
+				{@const elegidas = grupo.canchas.filter((c) => seleccion.has(c.id)).length}
+				<details
+					class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900"
+				>
+					<summary class="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+						<span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+							<i class="bi bi-geo-alt"></i>
+						</span>
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+								{grupo.sede.nombre}
+							</p>
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								{#if grupo.canchas.length === 0}
+									Sin canchas registradas
+								{:else}
+									{elegidas} / {grupo.canchas.length}
+									{grupo.canchas.length === 1 ? 'cancha' : 'canchas'}
+								{/if}
+							</p>
+						</div>
+						<i class="bi bi-chevron-down shrink-0 text-gray-400 transition-transform dark:text-gray-500"></i>
+					</summary>
+					{#if grupo.canchas.length === 0}
+						<p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 italic dark:border-gray-800 dark:text-gray-400">
+							Esta sede no tiene canchas registradas. Cargalas desde <a href="/sedes/{grupo.sede.id}" class="underline">Sedes</a>.
+						</p>
+					{:else}
+						<ul class="space-y-1.5 border-t border-gray-100 p-3 dark:border-gray-800">
+							{#each grupo.canchas as cancha (cancha.id)}
+								{@const checked = seleccion.has(cancha.id)}
+								<li>
+									<label
+										class="flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition {checked
+											? 'border-brand-500 bg-brand-50 dark:border-brand-700 dark:bg-brand-900/40'
+											: 'border-gray-200 bg-white hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'}"
+									>
+										<input
+											type="checkbox"
+											checked={checked}
+											onchange={() => toggleSeleccion(cancha.id)}
+											class="h-4 w-4 shrink-0 rounded border-gray-300 text-brand-500 focus:ring-brand-200 dark:border-gray-700"
+										/>
+										<span class="min-w-0 flex-1 truncate font-medium text-gray-900 dark:text-gray-100">
+											{cancha.nombre}
+										</span>
+									</label>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</details>
 			{/each}
 		</div>
 	{/if}

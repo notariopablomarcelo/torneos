@@ -7,6 +7,17 @@
 	let torneos = $state<Torneo[]>([]);
 	let cargando = $state(true);
 
+	// Orden por fecha de creacion (mas nuevo primero). Si el campo creadoEn
+	// no estuviera definido (datos viejos), usar el id como tiebreaker.
+	const torneosOrdenados = $derived(
+		[...torneos].sort((a, b) => {
+			const ca = a.creadoEn ?? '';
+			const cb = b.creadoEn ?? '';
+			if (ca !== cb) return cb.localeCompare(ca);
+			return b.id.localeCompare(a.id);
+		})
+	);
+
 	onMount(() => {
 		const unsub = suscribirTorneos((t) => {
 			torneos = t;
@@ -50,8 +61,8 @@
 			</a>
 		</div>
 	{:else}
-		<ul class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-			{#each torneos as t (t.id)}
+		<ul class="space-y-3">
+			{#each torneosOrdenados as t (t.id)}
 				<li>
 					<a
 						href={`/torneos/${t.id}`}

@@ -217,22 +217,30 @@ function bracketArmadoToPreview(
 		const n = (contadorPorFase.get(p.fase) ?? 0) + 1;
 		contadorPorFase.set(p.fase, n);
 		let prefijo: string;
-		switch (p.fase) {
-			case '32vos':
-				prefijo = '32-';
-				break;
-			case '16vos':
-				prefijo = '16-';
-				break;
-			case '8vos':
-				prefijo = '8-';
-				break;
-			case '4tos':
-				prefijo = '4-';
-				break;
-			case 'Semis':
-				prefijo = 'S';
-				break;
+		const playInMatch = p.fase.match(/^Play-in (\d+)$/);
+		if (playInMatch) {
+			// "Play-in 1" → "PI1-", "Play-in 2" → "PI2-".
+			prefijo = `PI${playInMatch[1]}-`;
+		} else {
+			switch (p.fase) {
+				case '32vos':
+					prefijo = '32-';
+					break;
+				case '16vos':
+					prefijo = '16-';
+					break;
+				case '8vos':
+					prefijo = '8-';
+					break;
+				case '4tos':
+					prefijo = '4-';
+					break;
+				case 'Semis':
+					prefijo = 'S';
+					break;
+				default:
+					prefijo = '';
+			}
 		}
 		codigosPorNumero.set(p.numeroEnZona, `${prefijo}${n}`);
 	}

@@ -3,7 +3,7 @@
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import BreadcrumbCard from '$lib/components/BreadcrumbCard.svelte';
 	import KebabMenu from '$lib/components/KebabMenu.svelte';
-	import ResultadoForm from '$lib/components/ResultadoForm.svelte';
+	import ResultadoWizard from '$lib/components/ResultadoWizard.svelte';
 	import { suscribirTorneo } from '$lib/services/torneos';
 	import { obtenerCategoria } from '$lib/services/categorias';
 	import { suscribirJugadores } from '$lib/services/jugadores';
@@ -246,24 +246,29 @@
 			const n = (contador.get(p.fase ?? '') ?? 0) + 1;
 			contador.set(p.fase ?? '', n);
 			let prefijo: string;
-			switch (p.fase) {
-				case '32vos':
-					prefijo = '32-';
-					break;
-				case '16vos':
-					prefijo = '16-';
-					break;
-				case '8vos':
-					prefijo = '8-';
-					break;
-				case '4tos':
-					prefijo = '4-';
-					break;
-				case 'Semis':
-					prefijo = 'S';
-					break;
-				default:
-					prefijo = '';
+			const playInMatch = (p.fase ?? '').match(/^Play-in (\d+)$/);
+			if (playInMatch) {
+				prefijo = `PI${playInMatch[1]}-`;
+			} else {
+				switch (p.fase) {
+					case '32vos':
+						prefijo = '32-';
+						break;
+					case '16vos':
+						prefijo = '16-';
+						break;
+					case '8vos':
+						prefijo = '8-';
+						break;
+					case '4tos':
+						prefijo = '4-';
+						break;
+					case 'Semis':
+						prefijo = 'S';
+						break;
+					default:
+						prefijo = '';
+				}
 			}
 			m.set(p.id, `${prefijo}${n}`);
 		}
@@ -402,6 +407,19 @@
 		rondaActivaManual = r;
 	}
 
+	// Tabs de ronda para la vista LISTA del preview (cuadro aun no armado).
+	// Misma logica que rondaActiva pero sobre rondasPreview. Como aun no hay
+	// resultados, la "ronda actual" es la primera por default.
+	let rondaActivaPreviewManual = $state<number | null>(null);
+	const rondaActivaPreview = $derived.by<number>(() => {
+		if (rondaActivaPreviewManual !== null) return rondaActivaPreviewManual;
+		if (rondasPreview.length === 0) return 0;
+		return rondasPreview[0]!.ronda;
+	});
+	function seleccionarRondaPreview(r: number) {
+		rondaActivaPreviewManual = r;
+	}
+
 	const grupoActivo = $derived(
 		rondas.find((g) => g.ronda === rondaActiva) ?? null
 	);
@@ -482,7 +500,7 @@
 			await armarBracketCategoria(tid, cid, zonas);
 			categoria = await obtenerCategoria(tid, cid);
 		} catch (err) {
-			alert(err instanceof Error ? err.message : 'Error al armar el cuadro final');
+			alert(err instanceof Error ? err.message : 'Error al armar la fase eliminatoria');
 		} finally {
 			armando = false;
 		}
@@ -490,7 +508,7 @@
 
 	async function handleRearmar() {
 		const ok = confirm(
-			'Re-armar borra los partidos del cuadro final (con sus resultados) y vuelve a generar todo. ¿Continuar?'
+			'Re-armar borra los partidos de la fase eliminatoria (con sus resultados) y vuelve a generar todo. ¿Continuar?'
 		);
 		if (!ok) return;
 		await handleArmar();
@@ -498,14 +516,14 @@
 
 	async function handleDesarmar() {
 		const ok = confirm(
-			'Desarmar borra todos los partidos del cuadro final. ¿Continuar?'
+			'Desarmar borra todos los partidos de la fase eliminatoria. ¿Continuar?'
 		);
 		if (!ok) return;
 		try {
 			await desarmarBracketCategoria(tid, cid);
 			categoria = await obtenerCategoria(tid, cid);
 		} catch (err) {
-			alert(err instanceof Error ? err.message : 'Error al desarmar el cuadro final');
+			alert(err instanceof Error ? err.message : 'Error al desarmar la fase eliminatoria');
 		}
 	}
 
@@ -574,6 +592,56 @@
 		seleccionSlot = null;
 		slotsEdit = [];
 		cuadroModal = false;
+	}
+
+	// Cambia el tamano del cuadro (slotsEdit.length) a la siguiente potencia
+	// de 2 elegida por el usuario. Permite "expandir" para crear play-ins
+	// (mas slots con byes) o "contraer" cuando no usa la expansion.
+	// Al contraer: si hay refs reales en slots que se descartarian, las
+	// movemos al inicio del nuevo array para no perderlas (descartando solo
+	// nulls). Si no entran todas, se aborta con alert.
+	function cambiarTamanoCuadro(nuevoTamano: number) {
+		const refsReales = slotsEdit.filter((r) => r !== null);
+		if (refsReales.length > nuevoTamano) {
+			alert(
+				`No se puede contraer a ${nuevoTamano} slots: hay ${refsReales.length} parejas en el cuadro.`
+			);
+			return;
+		}
+		if (nuevoTamano > slotsEdit.length) {
+			// Expandir: agregar nulls al final manteniendo todo el array actual.
+			const extras = new Array<ParejaRef | null>(
+				nuevoTamano - slotsEdit.length
+			).fill(null);
+			slotsEdit = [...slotsEdit, ...extras];
+		} else if (nuevoTamano < slotsEdit.length) {
+			// Contraer: descartamos slots null del final hasta llegar al tamano.
+			// Si encontramos un slot no-null mas alla, abortamos (ya validamos
+			// la cantidad pero podria estar en los ultimos slots).
+			const nuevo: (ParejaRef | null)[] = [];
+			let conservados = 0;
+			for (let i = 0; i < slotsEdit.length && conservados < nuevoTamano; i += 1) {
+				nuevo.push(slotsEdit[i] ?? null);
+				conservados += 1;
+			}
+			// Verificar que las refs reales restantes son todas null.
+			const descartados = slotsEdit.slice(nuevoTamano);
+			if (descartados.some((r) => r !== null)) {
+				// Las refs reales que quedan afuera se mueven al inicio (a
+				// posiciones que eran null). No se pierden.
+				const sobrantes = descartados.filter((r) => r !== null);
+				let idxInsert = 0;
+				for (const ref of sobrantes) {
+					while (idxInsert < nuevo.length && nuevo[idxInsert] !== null) {
+						idxInsert += 1;
+					}
+					if (idxInsert >= nuevo.length) break;
+					nuevo[idxInsert] = ref;
+				}
+			}
+			slotsEdit = nuevo;
+		}
+		seleccionSlot = null;
 	}
 
 	function clickSlotEdit(idx: number) {
@@ -700,24 +768,29 @@
 			const n = (contador.get(p.fase ?? '') ?? 0) + 1;
 			contador.set(p.fase ?? '', n);
 			let prefijo: string;
-			switch (p.fase) {
-				case '32vos':
-					prefijo = '32-';
-					break;
-				case '16vos':
-					prefijo = '16-';
-					break;
-				case '8vos':
-					prefijo = '8-';
-					break;
-				case '4tos':
-					prefijo = '4-';
-					break;
-				case 'Semis':
-					prefijo = 'S';
-					break;
-				default:
-					prefijo = '';
+			const playInMatch = (p.fase ?? '').match(/^Play-in (\d+)$/);
+			if (playInMatch) {
+				prefijo = `PI${playInMatch[1]}-`;
+			} else {
+				switch (p.fase) {
+					case '32vos':
+						prefijo = '32-';
+						break;
+					case '16vos':
+						prefijo = '16-';
+						break;
+					case '8vos':
+						prefijo = '8-';
+						break;
+					case '4tos':
+						prefijo = '4-';
+						break;
+					case 'Semis':
+						prefijo = 'S';
+						break;
+					default:
+						prefijo = '';
+				}
 			}
 			m.set(p.numeroEnZona, `${prefijo}${n}`);
 		}
@@ -919,10 +992,10 @@
 		/>
 
 		<header class="mb-4 flex items-center justify-between">
-			<h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">Cuadro Final</h1>
+			<h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">Fase Eliminatoria</h1>
 			{#if bracketArmado && !modoEdicion}
 				<KebabMenu
-					label="Acciones del cuadro final"
+					label="Acciones de la fase eliminatoria"
 					items={[
 						{
 							label: 'Editar cruces',
@@ -933,6 +1006,17 @@
 							label: 'Re-armar',
 							icono: 'bi-arrow-clockwise',
 							onClick: handleRearmar
+						}
+					]}
+				/>
+			{:else if !modoEdicion && (previewBracketCustom || previewBracket)}
+				<KebabMenu
+					label="Acciones de la fase eliminatoria"
+					items={[
+						{
+							label: 'Editar cruces',
+							icono: 'bi-pencil-square',
+							onClick: abrirEditorPreview
 						}
 					]}
 				/>
@@ -950,7 +1034,7 @@
 					<div class="flex-1">
 						<p class="font-semibold">Vista previa (configuración personalizada)</p>
 						<p class="opacity-80">
-							Estructura del cuadro final basada en {grp.cantidadZonas}
+							Estructura de la fase eliminatoria basada en {grp.cantidadZonas}
 							{grp.cantidadZonas === 1 ? 'zona' : 'zonas'} y {grp.totalParejas}
 							parejas. Las posiciones reales se resuelven al terminar las zonas.
 						</p>
@@ -981,22 +1065,6 @@
 
 				{@render tabsVista()}
 
-				{#if !modoEdicion}
-					<!-- Barra de acciones del preview: editar cruces antes de que
-					     el bracket real este armado. Se guarda como override en
-					     la categoria y se aplica al armar mas tarde. -->
-					<div class="mb-3 flex flex-wrap items-center justify-end gap-2">
-						<button
-							type="button"
-							onclick={abrirEditorPreview}
-							class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-						>
-							<i class="bi bi-pencil-square"></i>
-							Editar cruces
-						</button>
-					</div>
-				{/if}
-
 				{#if modoEdicion && modoEditorFuente === 'preview' && !cuadroModal}
 					{@render cuadroEditarRender()}
 					{@render editorBarra()}
@@ -1005,25 +1073,7 @@
 				{:else if vistaCuadro === 'cuadro'}
 					{@render cuadroPreviewRender()}
 				{:else}
-					<section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-						<h2 class="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
-							Cuadro Final ({grp.bracket.length}
-							{grp.bracket.length === 1 ? 'partido' : 'partidos'})
-						</h2>
-						<ol class="space-y-1">
-							{#each grp.bracket as p (p.numero)}
-								<li class="flex items-baseline gap-2 rounded-md bg-gray-50 px-2 py-1.5 text-xs dark:bg-gray-800/50">
-									<span class="w-14 shrink-0 text-[10px] tracking-wider text-gray-400 uppercase">
-										{p.fase}
-									</span>
-									<span class="w-10 shrink-0 font-mono text-[12px] font-semibold text-brand-700 dark:text-brand-300">
-										{p.codigo}
-									</span>
-									<span class="text-gray-700 dark:text-gray-300">{p.label}</span>
-								</li>
-							{/each}
-						</ol>
-					</section>
+					{@render listaPreviewConTabs()}
 				{/if}
 				<p class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
 					<a
@@ -1043,7 +1093,7 @@
 					<div class="flex-1">
 						<p class="font-semibold">Vista previa</p>
 						<p class="opacity-80">
-							Estructura del cuadro final basada en
+							Estructura de la fase eliminatoria basada en
 							{previewBracket.cantidadZonas} zonas de {previewBracket.tamano},
 							clasifican {previewBracket.clasifican} por zona. Las posiciones reales se
 							resuelven al terminar las zonas.
@@ -1053,20 +1103,6 @@
 
 				{@render tabsVista()}
 
-				{#if !modoEdicion}
-					<!-- Barra de acciones del preview. -->
-					<div class="mb-3 flex flex-wrap items-center justify-end gap-2">
-						<button
-							type="button"
-							onclick={abrirEditorPreview}
-							class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-						>
-							<i class="bi bi-pencil-square"></i>
-							Editar cruces
-						</button>
-					</div>
-				{/if}
-
 				{#if modoEdicion && modoEditorFuente === 'preview' && !cuadroModal}
 					{@render cuadroEditarRender()}
 					{@render editorBarra()}
@@ -1075,25 +1111,7 @@
 				{:else if vistaCuadro === 'cuadro'}
 					{@render cuadroPreviewRender()}
 				{:else}
-					<section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-						<h2 class="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
-							Cuadro Final ({previewBracket.bracket.length}
-							{previewBracket.bracket.length === 1 ? 'partido' : 'partidos'})
-						</h2>
-						<ol class="space-y-1">
-							{#each previewBracket.bracket as p (p.numero)}
-								<li class="flex items-baseline gap-2 rounded-md bg-gray-50 px-2 py-1.5 text-xs dark:bg-gray-800/50">
-									<span class="w-14 shrink-0 text-[10px] tracking-wider text-gray-400 uppercase">
-										{p.fase}
-									</span>
-									<span class="w-10 shrink-0 font-mono text-[12px] font-semibold text-brand-700 dark:text-brand-300">
-										{p.codigo}
-									</span>
-									<span class="text-gray-700 dark:text-gray-300">{p.label}</span>
-								</li>
-							{/each}
-						</ol>
-					</section>
+					{@render listaPreviewConTabs()}
 				{/if}
 				<p class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
 					<a
@@ -1128,7 +1146,7 @@
 						Faltan zonas por terminar
 					</p>
 					<p class="mb-3">
-						El cuadro final se arma cuando todas las zonas finalizan. Quedan {zonasPendientes.length}
+						La fase eliminatoria se arma cuando todas las zonas finalizan. Quedan {zonasPendientes.length}
 						{zonasPendientes.length === 1 ? 'zona' : 'zonas'} en curso:
 					</p>
 					<ul class="space-y-1.5">
@@ -1148,7 +1166,7 @@
 			{:else}
 				<div class="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
 					<i class="bi bi-trophy text-4xl text-gray-300 dark:text-gray-600"></i>
-					<p class="mt-3 font-medium">Listo para armar el cuadro final</p>
+					<p class="mt-3 font-medium">Listo para armar la fase eliminatoria</p>
 					<p class="text-sm">Todas las zonas finalizaron. Ahora podés armar el cuadro.</p>
 					<button
 						type="button"
@@ -1327,6 +1345,83 @@
 	{/if}
 </div>
 
+<!-- Vista LISTA del preview: tabs por ronda + listado de partidos de la
+     ronda activa. Mismo patron visual que la vista lista del bracket armado
+     (tabs segmentados con formato 0/N, cards individuales con codigo +
+     chips de origen + descripcion de cada pareja). -->
+{#snippet listaPreviewConTabs()}
+	{@const grupoActivoPreview = rondasPreview.find((g) => g.ronda === rondaActivaPreview) ?? null}
+	<!-- Tabs segmented control: una por cada ronda. -->
+	<div class="mb-4 flex w-full items-center gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+		{#each rondasPreview as g (g.ronda)}
+			<button
+				type="button"
+				role="tab"
+				aria-selected={rondaActivaPreview === g.ronda}
+				onclick={() => seleccionarRondaPreview(g.ronda)}
+				class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs transition sm:gap-2 sm:px-3 sm:text-sm {rondaActivaPreview ===
+				g.ronda
+					? 'bg-white font-semibold text-brand-700 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:text-brand-300'
+					: 'bg-transparent font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}"
+			>
+				<span class="whitespace-nowrap">{g.fase}</span>
+				<!-- Mismo formato que armado: 0/N porque en preview no hay
+				     partidos jugados todavia. -->
+				<span
+					class="inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold {rondaActivaPreview ===
+					g.ronda
+						? 'bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300'
+						: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}"
+				>
+					0/{g.partidos.length}
+				</span>
+			</button>
+		{/each}
+	</div>
+
+	<!-- Listado de la ronda activa con cards estilo armado. -->
+	{#if grupoActivoPreview}
+		<ul class="space-y-2">
+			{#each grupoActivoPreview.partidos as p (p.numero)}
+				{@const origen1 = origenPreview(p.pareja1Ref)}
+				{@const origen2 = origenPreview(p.pareja2Ref)}
+				{@const nombre1 = nombrePreview(p.pareja1Ref)}
+				{@const nombre2 = nombrePreview(p.pareja2Ref)}
+				{@const etiqueta = p.codigo || (p.fase === 'Final' ? 'F' : '')}
+				<li class="rounded-lg border border-dashed border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+					<div class="mb-2 flex items-center justify-between gap-2">
+						<p class="text-xs font-semibold tracking-wide text-brand-700 dark:text-brand-300">
+							{etiqueta}
+						</p>
+					</div>
+					<div class="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-2 sm:gap-x-3">
+						{#if origen1}
+							<span class="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-center font-mono text-[10px] font-bold text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+								{origen1}
+							</span>
+						{:else}
+							<span class="shrink-0"></span>
+						{/if}
+						<p class="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
+							{nombre1}
+						</p>
+						{#if origen2}
+							<span class="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-center font-mono text-[10px] font-bold text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+								{origen2}
+							</span>
+						{:else}
+							<span class="shrink-0"></span>
+						{/if}
+						<p class="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
+							{nombre2}
+						</p>
+					</div>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+{/snippet}
+
 <!-- Toggle Lista/Cuadro reutilizable: usado en el preview (custom y simple)
      y en el bracket armado. Unifica los 3 copies que existian. -->
 {#snippet tabsVista()}
@@ -1371,20 +1466,24 @@
 			>
 				<i class="bi {cuadroExpandido ? 'bi-arrows-angle-contract' : 'bi-arrows-angle-expand'} text-base"></i>
 			</button>
-			<!-- Abrir en modal: util para cargar resultados aprovechando todo
-			     el viewport. Solo aplica al bracket armado (las refs son
-			     clickeables); en preview no tiene utilidad y lo escondemos. -->
-			{#if bracketArmado && !modoEdicion}
-				<button
-					type="button"
-					onclick={abrirCuadroModal}
-					aria-label="Abrir cuadro en pantalla completa"
-					title="Abrir cuadro en pantalla completa"
-					class="flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 transition hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-				>
-					<i class="bi bi-fullscreen text-base"></i>
-				</button>
-			{/if}
+		{/if}
+		<!-- Abrir cuadro en modal: visible cuando hay algun cuadro
+		     renderizable (preview o armado) y no estamos en modo edicion.
+		     Al tocar cambia a vista cuadro automaticamente para que el
+		     contenido del modal sea el grafico. -->
+		{#if !modoEdicion && (bracketArmado || previewBracketCustom || previewBracket)}
+			<button
+				type="button"
+				onclick={() => {
+					vistaCuadro = 'cuadro';
+					abrirCuadroModal();
+				}}
+				aria-label="Abrir cuadro en pantalla completa"
+				title="Abrir cuadro en pantalla completa"
+				class="flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 transition hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+			>
+				<i class="bi bi-fullscreen text-base"></i>
+			</button>
 		{/if}
 	</div>
 {/snippet}
@@ -1401,6 +1500,8 @@
 		     slot intermedio y el max subestima la altura del cuadro. -->
 		{@const SLOT_RONDA1 = Math.pow(2, rondasPreview.length - 1)}
 		{@const ALTO_SLOT = cuadroExpandido ? 130 : 90}
+		{@const GAP_PX_PREV = 48}
+		{@const partidosFlatPrev = previewActivo.bracket}
 		{@const ALTURA_TOTAL = Math.max(cuadroExpandido ? 600 : 440, SLOT_RONDA1 * ALTO_SLOT)}
 		{@const ANCHO_COL = cuadroExpandido ? 340 : 220}
 		<!-- Cuando expandido: full-bleed para escapar del max-w-4xl. -->
@@ -1434,6 +1535,31 @@
 								<!-- Codigo del partido arriba a la derecha. La Final no
 								     tiene codigo corto enumerado: usamos "F" como etiqueta. -->
 								{@const etiquetaCodigo = p.codigo || (p.fase === 'Final' ? 'F' : '')}
+								<!-- Destino real del ganador (puede saltar rondas). -->
+								{@const destinoPrev = partidosFlatPrev.find(
+									(q) =>
+										(q.pareja1Ref.tipo === 'GanadorPartido' &&
+											q.pareja1Ref.numeroEnZona === p.numero) ||
+										(q.pareja2Ref.tipo === 'GanadorPartido' &&
+											q.pareja2Ref.numeroEnZona === p.numero)
+								)}
+								{@const idxRondaDestPrev = destinoPrev
+									? rondasPreview.findIndex((r) => r.ronda === destinoPrev.ronda)
+									: -1}
+								{@const slotsRondaDestPrev =
+									destinoPrev && idxRondaDestPrev >= 0
+										? SLOT_RONDA1 / Math.pow(2, idxRondaDestPrev)
+										: 1}
+								{@const topDestPrev = destinoPrev
+									? (destinoPrev.posicionEnRonda - 0.5) *
+										(ALTURA_TOTAL / Math.max(slotsRondaDestPrev, 1))
+									: 0}
+								{@const dyPrev = destinoPrev ? topDestPrev - top : 0}
+								{@const saltosPrev = destinoPrev ? idxRondaDestPrev - idxRonda : 0}
+								{@const anchoExtraPrev =
+									saltosPrev > 1
+										? (saltosPrev - 1) * (ANCHO_COL + GAP_PX_PREV)
+										: 0}
 								<div
 									class="absolute rounded-md border-2 border-dashed border-gray-300 bg-gray-50 text-left shadow-sm dark:border-gray-600 dark:bg-gray-800/50"
 									style="top: {top}px; left: 0; right: 0; transform: translateY(-50%);"
@@ -1477,26 +1603,26 @@
 											</p>
 										</div>
 									</div>
-									<!-- Conector saliente: linea horizontal + vertical hasta la
-									     card de la ronda siguiente, calculada por el slot que le
-									     toca al ganador en la ronda+1: ceil(slot/2). -->
-									{#if idxRonda < rondasPreview.length - 1}
-										{@const slotSig = Math.ceil(slot / 2)}
-										{@const slotsSig = slotsRonda / 2}
-										{@const topSig = (slotSig - 0.5) * (ALTURA_TOTAL / Math.max(slotsSig, 1))}
-										{@const dy = topSig - top}
+									<!-- Conector saliente al destino real (puede saltar rondas). -->
+									{#if destinoPrev}
 										<span
 											class="pointer-events-none absolute top-1/2 -right-6 h-px w-6 bg-gray-300 dark:bg-gray-600"
 										></span>
-										{#if dy > 0}
+										{#if dyPrev > 0}
 											<span
 												class="pointer-events-none absolute top-1/2 -right-6 w-px bg-gray-300 dark:bg-gray-600"
-												style="height: {dy}px;"
+												style="height: {dyPrev}px;"
 											></span>
-										{:else if dy < 0}
+										{:else if dyPrev < 0}
 											<span
 												class="pointer-events-none absolute -right-6 w-px bg-gray-300 dark:bg-gray-600"
-												style="top: calc(50% + {dy}px); height: {Math.abs(dy)}px;"
+												style="top: calc(50% + {dyPrev}px); height: {Math.abs(dyPrev)}px;"
+											></span>
+										{/if}
+										{#if anchoExtraPrev > 0}
+											<span
+												class="pointer-events-none absolute h-px bg-gray-300 dark:bg-gray-600"
+												style="top: calc(50% + {dyPrev}px); right: -{24 + anchoExtraPrev}px; width: {anchoExtraPrev}px;"
 											></span>
 										{/if}
 									{/if}
@@ -1521,6 +1647,12 @@
 	{@const ALTO_SLOT = cuadroExpandido ? 130 : 90}
 	{@const ALTURA_TOTAL = Math.max(cuadroExpandido ? 600 : 440, SLOT_RONDA1 * ALTO_SLOT)}
 	{@const ANCHO_COL = cuadroExpandido ? 340 : 220}
+	{@const GAP_PX = 48}
+	<!-- Lista plana de todos los partidos del bracket. Sirve para encontrar
+	     el partido "destino" de cada uno (= el que referencia su ganador)
+	     y dibujar conectores correctos incluso cuando una rama salta una
+	     ronda intermedia por bye (caso de cuadros expandidos con play-ins). -->
+	{@const partidosFlat = rondas.flatMap((r) => r.partidos)}
 	<!-- Panel con scroll propio. Cuando esta dentro del modal no aplica
 	     max-height ni full-bleed — el modal ya provee el viewport completo. -->
 	<div
@@ -1555,6 +1687,32 @@
 							{@const origen2 = origenDeParejaRef(p.pareja2Ref)}
 							{@const sets = p.resultado?.sets ?? []}
 							{@const codigoArm = codigosArmado.get(p.id) ?? ''}
+							<!-- Destino real del ganador: el partido que referencia
+							     este como GanadorPartido. Puede saltar rondas
+							     intermedias en cuadros asimetricos. -->
+							{@const destino = partidosFlat.find(
+								(q) =>
+									(q.pareja1Ref.tipo === 'GanadorPartido' &&
+										q.pareja1Ref.numeroEnZona === p.numeroEnZona) ||
+									(q.pareja2Ref.tipo === 'GanadorPartido' &&
+										q.pareja2Ref.numeroEnZona === p.numeroEnZona)
+							)}
+							{@const idxRondaDestino = destino
+								? rondas.findIndex((r) => r.ronda === destino.ronda)
+								: -1}
+							{@const slotsRondaDestino =
+								destino && idxRondaDestino >= 0
+									? SLOT_RONDA1 / Math.pow(2, idxRondaDestino)
+									: 1}
+							{@const espacioPorSlotDestino =
+								ALTURA_TOTAL / Math.max(slotsRondaDestino, 1)}
+							{@const topDestino = destino
+								? ((destino.posicionEnRonda ?? 1) - 0.5) * espacioPorSlotDestino
+								: 0}
+							{@const dy = destino ? topDestino - top : 0}
+							{@const saltos = destino ? idxRondaDestino - idxRonda : 0}
+							{@const anchoExtra =
+								saltos > 1 ? (saltos - 1) * (ANCHO_COL + GAP_PX) : 0}
 							<button
 								type="button"
 								onclick={() => abrirResultado(p.id)}
@@ -1615,14 +1773,13 @@
 										</div>
 									{/if}
 								</div>
-								{#if idxRonda < rondas.length - 1}
-									{@const slotSig = Math.ceil(slot / 2)}
-									{@const slotsSig = slotsRonda / 2}
-									{@const topSig = (slotSig - 0.5) * (ALTURA_TOTAL / Math.max(slotsSig, 1))}
-									{@const dy = topSig - top}
+								<!-- Conector saliente al destino real (puede saltar rondas). -->
+								{#if destino}
+									<!-- Horizontal saliente corta (24px). -->
 									<span
 										class="pointer-events-none absolute top-1/2 -right-6 h-px w-6 bg-gray-300 dark:bg-gray-600"
 									></span>
+									<!-- Vertical de altura |dy| hacia el nivel del destino. -->
 									{#if dy > 0}
 										<span
 											class="pointer-events-none absolute top-1/2 -right-6 w-px bg-gray-300 dark:bg-gray-600"
@@ -1632,6 +1789,14 @@
 										<span
 											class="pointer-events-none absolute -right-6 w-px bg-gray-300 dark:bg-gray-600"
 											style="top: calc(50% + {dy}px); height: {Math.abs(dy)}px;"
+										></span>
+									{/if}
+									<!-- Horizontal extendida que cruza columnas intermedias
+									     cuando el destino salta una o mas rondas. -->
+									{#if anchoExtra > 0}
+										<span
+											class="pointer-events-none absolute h-px bg-gray-300 dark:bg-gray-600"
+											style="top: calc(50% + {dy}px); right: -{24 + anchoExtra}px; width: {anchoExtra}px;"
 										></span>
 									{/if}
 								{/if}
@@ -1648,6 +1813,8 @@
 	{#if bracketEditando && rondasEditando.length > 0}
 		{@const SLOT_RONDA1 = Math.pow(2, rondasEditando.length - 1)}
 		{@const ALTO_SLOT = cuadroExpandido ? 130 : 90}
+		{@const GAP_PX_EDIT = 48}
+		{@const partidosFlatEdit = bracketEditando.partidos}
 		{@const ALTURA_TOTAL = Math.max(cuadroExpandido ? 600 : 440, SLOT_RONDA1 * ALTO_SLOT)}
 		{@const ANCHO_COL = cuadroExpandido ? 340 : 220}
 		<div
@@ -1785,6 +1952,31 @@
 								{@const nombre1 = nombreDeRefEditando(p.pareja1Ref)}
 								{@const nombre2 = nombreDeRefEditando(p.pareja2Ref)}
 								{@const codigoPartido = codigosEditando.get(p.numeroEnZona) ?? ''}
+								<!-- Destino real del ganador (puede saltar rondas). -->
+								{@const destinoEdit = partidosFlatEdit.find(
+									(q) =>
+										(q.pareja1Ref.tipo === 'GanadorPartido' &&
+											q.pareja1Ref.numeroEnZona === p.numeroEnZona) ||
+										(q.pareja2Ref.tipo === 'GanadorPartido' &&
+											q.pareja2Ref.numeroEnZona === p.numeroEnZona)
+								)}
+								{@const idxRondaDestEdit = destinoEdit
+									? rondasEditando.findIndex((r) => r.ronda === destinoEdit.ronda)
+									: -1}
+								{@const slotsRondaDestEdit =
+									destinoEdit && idxRondaDestEdit >= 0
+										? SLOT_RONDA1 / Math.pow(2, idxRondaDestEdit)
+										: 1}
+								{@const topDestEdit = destinoEdit
+									? ((destinoEdit.posicionEnRonda ?? 1) - 0.5) *
+										(ALTURA_TOTAL / Math.max(slotsRondaDestEdit, 1))
+									: 0}
+								{@const dyEdit = destinoEdit ? topDestEdit - top : 0}
+								{@const saltosEdit = destinoEdit ? idxRondaDestEdit - idxRonda : 0}
+								{@const anchoExtraEdit =
+									saltosEdit > 1
+										? (saltosEdit - 1) * (ANCHO_COL + GAP_PX_EDIT)
+										: 0}
 								<div
 									class="absolute rounded-md border bg-white text-left transition dark:bg-gray-800 {sel1 || sel2 ? 'border-brand-500 shadow-md ring-2 ring-brand-200 dark:border-brand-400 dark:ring-brand-900/50' : 'border-gray-200 dark:border-gray-700'}"
 									style="top: {top}px; left: 0; right: 0; transform: translateY(-50%);"
@@ -1845,23 +2037,26 @@
 											<i class="bi bi-lock-fill mt-0.5 shrink-0 text-[11px] text-gray-400 dark:text-gray-500"></i>
 										{/if}
 									</button>
-									{#if idxRonda < rondasEditando.length - 1}
-										{@const slotSig = Math.ceil(slot / 2)}
-										{@const slotsSig = slotsRonda / 2}
-										{@const topSig = (slotSig - 0.5) * (ALTURA_TOTAL / Math.max(slotsSig, 1))}
-										{@const dy = topSig - top}
+									<!-- Conector saliente al destino real (puede saltar rondas). -->
+									{#if destinoEdit}
 										<span
 											class="pointer-events-none absolute top-1/2 -right-6 h-px w-6 bg-gray-300 dark:bg-gray-600"
 										></span>
-										{#if dy > 0}
+										{#if dyEdit > 0}
 											<span
 												class="pointer-events-none absolute top-1/2 -right-6 w-px bg-gray-300 dark:bg-gray-600"
-												style="height: {dy}px;"
+												style="height: {dyEdit}px;"
 											></span>
-										{:else if dy < 0}
+										{:else if dyEdit < 0}
 											<span
 												class="pointer-events-none absolute -right-6 w-px bg-gray-300 dark:bg-gray-600"
-												style="top: calc(50% + {dy}px); height: {Math.abs(dy)}px;"
+												style="top: calc(50% + {dyEdit}px); height: {Math.abs(dyEdit)}px;"
+											></span>
+										{/if}
+										{#if anchoExtraEdit > 0}
+											<span
+												class="pointer-events-none absolute h-px bg-gray-300 dark:bg-gray-600"
+												style="top: calc(50% + {dyEdit}px); right: -{24 + anchoExtraEdit}px; width: {anchoExtraEdit}px;"
 											></span>
 										{/if}
 									{/if}
@@ -1989,6 +2184,29 @@
 				{/if}
 			</div>
 			<div class="flex flex-wrap gap-2 sm:shrink-0">
+				<!-- Selector de tamano del cuadro: permite expandir/contraer
+				     para crear play-ins. La cantidad de parejas reales se
+				     conserva al cambiar; los nulls se agregan/quitan. -->
+				<label class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+					<span class="text-gray-500 dark:text-gray-400">Cuadro:</span>
+					<select
+						value={slotsEdit.length}
+						onchange={(e) => cambiarTamanoCuadro(Number(e.currentTarget.value))}
+						disabled={guardando}
+						class="bg-transparent text-xs font-semibold outline-none disabled:opacity-50"
+					>
+						{#each [4, 8, 16, 32, 64] as size (size)}
+							{@const refsReales = slotsEdit.filter((r) => r !== null).length}
+							{@const disabled = size < refsReales}
+							<option value={size} {disabled}>
+								{size}
+								{#if size === slotsEdit.length}
+									(actual)
+								{/if}
+							</option>
+						{/each}
+					</select>
+				</label>
 				<button
 					type="button"
 					onclick={() => (cuadroModal ? cerrarCuadroModal() : abrirCuadroModal())}
@@ -2103,12 +2321,12 @@
 <!-- Modal full-screen del cuadro armado (vista, no edicion). Click en una
      card del cuadro adentro abre el BottomSheet de carga de resultado por
      encima del modal (el BottomSheet vive a nivel superior). -->
-{#if cuadroModal && !modoEdicion && bracketArmado}
+{#if cuadroModal && !modoEdicion && (bracketArmado || previewBracketCustom || previewBracket)}
 	<div
 		class="fixed inset-0 z-50 flex flex-col bg-black/60"
 		role="dialog"
 		aria-modal="true"
-		aria-label="Cuadro final en pantalla completa"
+		aria-label="Fase eliminatoria en pantalla completa"
 		onclick={(e) => {
 			if (e.target === e.currentTarget) cerrarCuadroModal();
 		}}
@@ -2125,10 +2343,14 @@
 			<header class="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
 				<div>
 					<h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-						Cuadro Final — pantalla completa
+						Fase Eliminatoria — pantalla completa
 					</h2>
 					<p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-						Tocá una card para cargar o editar su resultado.
+						{#if bracketArmado}
+							Tocá una card para cargar o editar su resultado.
+						{:else}
+							Vista previa — las posiciones reales se resuelven al terminar las zonas.
+						{/if}
 					</p>
 				</div>
 				<button
@@ -2142,7 +2364,11 @@
 				</button>
 			</header>
 			<div class="flex-1 overflow-auto p-3 sm:p-4">
-				{@render cuadroArmadoRender()}
+				{#if bracketArmado}
+					{@render cuadroArmadoRender()}
+				{:else}
+					{@render cuadroPreviewRender()}
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -2156,7 +2382,7 @@
 >
 	{#if partidoEditando}
 		{#key partidoEditando.id}
-			<ResultadoForm
+			<ResultadoWizard
 				initial={partidoEditando.resultado}
 				nombresPareja1={nombresDeParejaRef(partidoEditando.pareja1Ref)}
 				nombresPareja2={nombresDeParejaRef(partidoEditando.pareja2Ref)}

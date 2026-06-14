@@ -278,8 +278,24 @@ export function generarSedeInput(): SedeInput {
 	return { nombre, direccion };
 }
 
-export function generarCanchaInput(): CanchaInput {
-	// 60% "Cancha N", 30% nombres propios, 10% letra.
+export function generarCanchaInput(
+	canchasExistentes?: { nombre: string }[]
+): CanchaInput {
+	// Si nos pasan la lista de canchas existentes, devolvemos siempre
+	// "Cancha N" con N = menor entero positivo libre. Util para que el boton
+	// Test rellene huecos (1, 3 cargadas → siguiente sugerencia es 2).
+	if (canchasExistentes) {
+		const usados = new Set<number>();
+		const re = /^Cancha (\d+)$/i;
+		for (const c of canchasExistentes) {
+			const m = re.exec(c.nombre.trim());
+			if (m) usados.add(Number(m[1]));
+		}
+		let n = 1;
+		while (usados.has(n)) n++;
+		return { nombre: `Cancha ${n}` };
+	}
+	// Sin contexto: aleatorio. 60% "Cancha N", 30% nombres propios, 10% letra.
 	const r = Math.random();
 	let nombre: string;
 	if (r < 0.6) {

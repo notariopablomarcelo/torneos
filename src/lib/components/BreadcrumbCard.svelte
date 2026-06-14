@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	// Card informativo de contexto. Se usa arriba en sub-pantallas (e.g.
 	// inscripciones, zonas, detalle de zona) para mostrar la jerarquia
 	// torneo > categoria > zona, donde cada nivel es clickeable y lleva
@@ -12,7 +14,15 @@
 		href?: string;
 	};
 
-	let { items }: { items: Item[] } = $props();
+	let {
+		items,
+		footer
+	}: {
+		items: Item[];
+		// Opcional: contenido para la fila inferior del card — tipicamente
+		// botones de accion sobre la entidad principal (editar / eliminar).
+		footer?: Snippet;
+	} = $props();
 </script>
 
 <section
@@ -50,4 +60,9 @@
 			</li>
 		{/each}
 	</ul>
+	{#if footer}
+		<div class="border-t border-gray-100 px-3 py-2 dark:border-gray-800">
+			{@render footer()}
+		</div>
+	{/if}
 </section>

@@ -113,8 +113,10 @@ export type Zona = {
 
 // Fases del torneo. Los rotulos del bracket usan abreviaturas en castellano:
 // 16vos, 8vos, 4tos, Semis, Final. Los partidos previos a 16vos en cuadros
-// grandes se rotulan como "32vos" (no soportado hoy en la UI). Esto es lo
-// que se persiste en Firestore.
+// grandes se rotulan como "32vos" (no soportado hoy en la UI). Las fases
+// extras del bracket (cuando el organizador expande el cuadro mas alla del
+// tamano natural para crear play-ins) usan 'Play-in 1', 'Play-in 2', etc.
+// Esto es lo que se persiste en Firestore.
 export type FasePartido =
 	| 'Zona'
 	| '32vos'
@@ -122,7 +124,11 @@ export type FasePartido =
 	| '8vos'
 	| '4tos'
 	| 'Semis'
-	| 'Final';
+	| 'Final'
+	// 'Play-in N' donde N es un entero >= 1. Se usa cuando el organizador
+	// expande el cuadro mas alla del tamano natural. No se enumeran como
+	// literales para permitir cualquier N — tratar como string libre.
+	| `Play-in ${number}`;
 
 export type EstadoPartido = 'Pendiente' | 'Programado' | 'Jugado';
 

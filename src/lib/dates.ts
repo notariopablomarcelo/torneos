@@ -24,6 +24,14 @@ export function rangoFechasInclusivo(desde: string, hasta: string): string[] {
 	return out;
 }
 
+// Suma (o resta) dias a un YYYY-MM-DD, devuelve YYYY-MM-DD. Maneja cambio
+// de mes/año correctamente al apoyarse en Date.
+export function sumarDiasISO(iso: string, dias: number): string {
+	const d = new Date(`${iso}T00:00:00`);
+	d.setDate(d.getDate() + dias);
+	return isoFromDate(d);
+}
+
 // Mapeo manual de meses porque Intl.DateTimeFormat con 'short' en es-AR
 // devuelve "sept." (con punto). Es el mismo array que en types/torneo.ts;
 // duplicamos para no acoplar este helper a ese modulo.

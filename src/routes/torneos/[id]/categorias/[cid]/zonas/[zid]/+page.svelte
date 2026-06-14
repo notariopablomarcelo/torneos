@@ -4,7 +4,7 @@
 	import BreadcrumbCard from '$lib/components/BreadcrumbCard.svelte';
 	import InscripcionNombres from '$lib/components/InscripcionNombres.svelte';
 	import KebabMenu from '$lib/components/KebabMenu.svelte';
-	import ResultadoForm from '$lib/components/ResultadoForm.svelte';
+	import ResultadoWizard from '$lib/components/ResultadoWizard.svelte';
 	import { suscribirTorneo } from '$lib/services/torneos';
 	import { obtenerCategoria } from '$lib/services/categorias';
 	import { suscribirJugadores } from '$lib/services/jugadores';
@@ -861,7 +861,7 @@
 >
 	{#if partidoEditando}
 		{#key partidoEditando.id}
-			<ResultadoForm
+			<ResultadoWizard
 				initial={partidoEditando.resultado}
 				nombresPareja1={nombresDeParejaRef(partidoEditando.pareja1Ref)}
 				nombresPareja2={nombresDeParejaRef(partidoEditando.pareja2Ref)}

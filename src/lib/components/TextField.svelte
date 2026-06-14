@@ -25,6 +25,9 @@
 		// arriba (mismo estilo que SelectField). Util para type="date" donde el
 		// browser ya muestra "dd/mm/aaaa" y rompe el :placeholder-shown.
 		floating?: boolean;
+		// Focus automatico al montar el input. Util al navegar a una pantalla
+		// de creacion donde el primer paso es escribir el nombre.
+		autofocus?: boolean;
 		class?: string;
 	};
 
@@ -40,8 +43,19 @@
 		error,
 		disabled = false,
 		floating = true,
+		autofocus = false,
 		class: extraClass = ''
 	}: Props = $props();
+
+	// Foco automatico: usamos bind:this + tick() para que el navegador haya
+	// rendereado el input antes de pedirle foco. Funciona solo si autofocus
+	// arranca true al montar — cambios posteriores no lo activan.
+	let inputEl = $state<HTMLInputElement | null>(null);
+	$effect(() => {
+		if (autofocus && inputEl) {
+			inputEl.focus();
+		}
+	});
 </script>
 
 <div class="relative {extraClass}">
@@ -53,6 +67,7 @@
 		{maxlength}
 		{autocomplete}
 		{disabled}
+		bind:this={inputEl}
 		bind:value
 		placeholder=" "
 		class="peer block w-full appearance-none rounded-lg border bg-white dark:bg-gray-900 px-3 pt-5 pb-1.5 text-sm focus:outline-none focus:ring-2 disabled:bg-gray-50 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-500 {error

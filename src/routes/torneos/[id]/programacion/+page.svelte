@@ -529,6 +529,27 @@
 	} | null>(null);
 	let aplicandoSugerencia = $state(false);
 
+	// Indice de partidos por id (lo usa el bloque "Sin slot" para resolver
+	// los IDs que devuelve la sugerencia a `Partido` y mostrar su label).
+	const partidosPorId = $derived(new Map(partidos.map((p) => [p.id, p])));
+
+	// Texto de parejas para el bloque "Sin slot": "Apellido / Apellido vs
+	// Apellido / Apellido", o refs simbolicas cuando aun no se puede resolver
+	// ("Ganador P1 vs 1° Zona C").
+	function parejasTextoPartido(p: Partido): string {
+		const { pareja1, pareja2 } = nombresParejasPartido(p);
+		const p1 = pareja1 && pareja1.length > 0 ? pareja1.join(' / ') : '?';
+		const p2 = pareja2 && pareja2.length > 0 ? pareja2.join(' / ') : '?';
+		return `${p1} vs ${p2}`;
+	}
+
+	// Partidos que quedaron sin slot (resueltos a Partido para mostrar label).
+	const sinSlotPartidos = $derived<Partido[]>(
+		(resultadoSugerencia?.sinProgramar ?? [])
+			.map((id) => partidosPorId.get(id))
+			.filter((p): p is Partido => !!p)
+	);
+
 	function recalcularSugerencia(modo: ModoSugerencia) {
 		const reasignar = modo === 'reasignar';
 		const sinProgramar: PartidoParaSugerir[] = partidos
@@ -967,38 +988,32 @@
 		</div>
 
 		{#if resultadoSugerencia.sinProgramar.length > 0}
-			<div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-				<p class="flex items-center gap-1.5 font-semibold">
-					<i class="bi bi-info-circle"></i>
-					{resultadoSugerencia.sinProgramar.length}
-					{resultadoSugerencia.sinProgramar.length === 1 ? 'partido' : 'partidos'} sin slot disponible.
-				</p>
-				<p class="mt-1">
-					Ampliá la disponibilidad de canchas o agregá más canchas para que entren todos.
-				</p>
-			</div>
-		{/if}
-
-		{#if resultadoSugerencia.asignaciones.length > 0}
-			<details class="mb-4 rounded-lg border border-gray-200 dark:border-gray-800">
-				<summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
-					Ver detalle
+			<details class="mb-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/40">
+				<summary class="cursor-pointer px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+					<span class="flex items-center gap-1.5 font-semibold">
+						<i class="bi bi-info-circle"></i>
+						{resultadoSugerencia.sinProgramar.length}
+						{resultadoSugerencia.sinProgramar.length === 1 ? 'partido' : 'partidos'} sin slot disponible
+					</span>
+					<span class="mt-1 block font-normal">
+						Ampliá la disponibilidad de canchas o agregá más canchas para que entren todos.
+					</span>
 				</summary>
-				<ul class="max-h-64 space-y-1 overflow-y-auto border-t border-gray-100 p-2 text-xs dark:border-gray-800">
-					{#each resultadoSugerencia.asignaciones as a (a.partidoId)}
-						{@const p = partidos.find((pp) => pp.id === a.partidoId)}
-						<li class="flex items-start gap-2 rounded-md bg-gray-50 px-2 py-1.5 dark:bg-gray-800/50">
-							<span class="min-w-0 flex-1 truncate text-gray-700 dark:text-gray-300">
-								{p ? labelPartido(p) : a.partidoId}
-							</span>
-							<span class="shrink-0 font-mono text-gray-600 dark:text-gray-400">
-								{a.programacion.fecha.slice(5)} · {a.programacion.hora}
-							</span>
+				<ul class="max-h-60 space-y-1 overflow-y-auto border-t border-amber-200 p-2 text-xs dark:border-amber-800">
+					{#each sinSlotPartidos as p (p.id)}
+						<li class="rounded-md bg-white/60 px-2 py-1.5 dark:bg-amber-950/30">
+							<p class="truncate font-medium text-amber-900 dark:text-amber-200">
+								{labelPartido(p)}
+							</p>
+							<p class="truncate text-[10.5px] text-amber-700/80 dark:text-amber-300/80">
+								{parejasTextoPartido(p)}
+							</p>
 						</li>
 					{/each}
 				</ul>
 			</details>
 		{/if}
+
 
 		<div class="mt-5 flex items-center justify-end gap-3">
 			<button

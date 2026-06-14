@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import GrillaProgramacion from '$lib/components/GrillaProgramacion.svelte';
-	import ResultadoForm from '$lib/components/ResultadoForm.svelte';
+	import ResultadoWizard from '$lib/components/ResultadoWizard.svelte';
 	import { suscribirTorneo } from '$lib/services/torneos';
 	import { suscribirCategorias } from '$lib/services/categorias';
 	import {
@@ -694,7 +694,7 @@
 
 		{#if tabEdicion === 'resultado' && parejasResueltas}
 			{#key partidoEditando.id}
-				<ResultadoForm
+				<ResultadoWizard
 					initial={partidoEditando.resultado}
 					nombresPareja1={parejasResueltas.nombresPareja1}
 					nombresPareja2={parejasResueltas.nombresPareja2}

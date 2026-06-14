@@ -1,4 +1,9 @@
-import type { Clasifican, ParejaRef, PartidoPlantilla } from '$lib/types/armado';
+import type {
+	Clasifican,
+	FasePartido,
+	ParejaRef,
+	PartidoPlantilla
+} from '$lib/types/armado';
 
 // =============================================================================
 // Sembrado snake del bracket eliminatorio
@@ -46,7 +51,16 @@ export type BracketArmado = {
 	partidos: PartidoBracketPlantilla[];
 };
 
-export type FaseBracket = '32vos' | '16vos' | '8vos' | '4tos' | 'Semis' | 'Final';
+// Etiqueta de la fase de un partido del bracket. Set base:
+// '32vos' | '16vos' | '8vos' | '4tos' | 'Semis' | 'Final'.
+// Cuando el cuadro se expande mas alla del tamano natural (siguiente
+// potencia de 2 de la cantidad de parejas reales), las rondas extras se
+// etiquetan como 'Play-in 1', 'Play-in 2', etc. — Play-in 1 es la mas
+// cercana al cuadro natural (su ganador entra a la fase principal), Play-in 2
+// es una ronda mas atras, etc.
+// Subtipo de FasePartido sin 'Zona' (esa fase es exclusiva de partidos de
+// zona, no del bracket).
+export type FaseBracket = Exclude<FasePartido, 'Zona'>;
 
 export type PartidoBracketPlantilla = PartidoPlantilla & {
 	ronda: number;
@@ -119,13 +133,56 @@ function siguientePotenciaDe2(n: number): number {
 //
 // El mapeo es importante: cuando hay byes, la 1ra ronda PARTIDOS REALES
 // puede ser de 16vos aunque algunos pasen directo a 8vos.
-function faseDeRonda(slotsEnRonda: number): FaseBracket {
+function faseEstandarDeRonda(slotsEnRonda: number): FaseBracket {
 	if (slotsEnRonda >= 64) return '32vos';
 	if (slotsEnRonda === 32) return '16vos';
 	if (slotsEnRonda === 16) return '8vos';
 	if (slotsEnRonda === 8) return '4tos';
 	if (slotsEnRonda === 4) return 'Semis';
 	return 'Final';
+}
+
+// Calcula las fases de cada ronda de un cuadro armado, distinguiendo entre
+// el "cuadro natural" (potencia de 2 minima para las parejas reales) y las
+// rondas EXTRAS que aparecen cuando el organizador expandio el cuadro
+// manualmente para meter play-ins.
+//
+// Reglas:
+//   - cuadroNatural = siguientePotenciaDe2(cantParejasReales).
+//   - rondasNaturales = log2(cuadroNatural). Estas rondas usan fases estandar
+//     empezando por la primera fase que corresponda al cuadro natural.
+//   - rondasExtras = log2(cuadroTotal) - rondasNaturales. Si > 0, esas
+//     primeras rondas se etiquetan 'Play-in N' donde N decrece hasta 1 al
+//     llegar a la fase principal (Play-in 1 = el ultimo, su ganador entra
+//     a la primera fase del cuadro natural).
+//
+// Devuelve un array indexado por nroRonda (1..rondasTotales) con la fase.
+function calcularFasesPorRonda(
+	cuadroTotal: number,
+	cantParejasReales: number
+): FaseBracket[] {
+	const rondasTotales = Math.log2(cuadroTotal);
+	const cuadroNatural = Math.max(2, siguientePotenciaDe2(cantParejasReales));
+	const rondasNaturales = Math.log2(cuadroNatural);
+	const rondasExtras = Math.max(0, rondasTotales - rondasNaturales);
+
+	const fases: FaseBracket[] = [];
+	for (let r = 1; r <= rondasTotales; r += 1) {
+		if (r <= rondasExtras) {
+			// Play-in N donde N decrece — Play-in 1 es la mas cercana al cuadro
+			// natural (la mas tardia de las play-ins).
+			const playInN = rondasExtras - r + 1;
+			fases.push(`Play-in ${playInN}`);
+		} else {
+			// Rondas naturales: la primera ronda natural arranca con el cuadro
+			// natural completo (slotsEnRonda = cuadroNatural / 2^0). Las
+			// siguientes se reducen a la mitad.
+			const idxRondaNatural = r - rondasExtras - 1;
+			const slotsEnRondaNatural = cuadroNatural / Math.pow(2, idxRondaNatural);
+			fases.push(faseEstandarDeRonda(slotsEnRondaNatural));
+		}
+	}
+	return fases;
 }
 
 // =============================================================================
@@ -194,6 +251,8 @@ function construirPartidosDesdeSlots(
 	slotRefs: (ParejaRef | null)[]
 ): BracketArmado {
 	const cuadro = slotRefs.length;
+	const cantParejasReales = slotRefs.filter((r) => r !== null).length;
+	const fasesPorRonda = calcularFasesPorRonda(cuadro, cantParejasReales);
 	const partidos: PartidoBracketPlantilla[] = [];
 	let numeroGlobal = 0;
 	let entrantes: (ParejaRef | null)[] = slotRefs;
@@ -211,7 +270,7 @@ function construirPartidosDesdeSlots(
 					numeroEnZona: numeroGlobal,
 					ronda: nroRonda,
 					posicionEnRonda: i / 2 + 1,
-					fase: faseDeRonda(cantSlots),
+					fase: fasesPorRonda[nroRonda - 1] ?? faseEstandarDeRonda(cantSlots),
 					pareja1Ref: a,
 					pareja2Ref: b
 				});

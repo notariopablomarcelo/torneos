@@ -14,6 +14,7 @@
 		obtenerSede,
 		suscribirCanchas
 	} from '$lib/services/sedes';
+	import { suscribirUsosDeCanchas } from '$lib/services/programacion';
 	import { AMBIENTE } from '$lib/firebase';
 	import { generarCanchaInput } from '$lib/dev/factories';
 	import type { Cancha, CanchaInput, Sede, SedeInput } from '$lib/types/sede';
@@ -24,6 +25,13 @@
 	let canchas = $state<Cancha[]>([]);
 	let cargando = $state(true);
 	let errorCarga = $state<string | null>(null);
+	let canchasEnUso = $state<Set<string>>(new Set());
+	let sedesEnUso = $state<Set<string>>(new Set());
+
+	const sedeEnUso = $derived(sedesEnUso.has(sid));
+	function canchaEnUso(canchaId: string): boolean {
+		return canchasEnUso.has(canchaId);
+	}
 
 	let sheetEditarSede = $state(false);
 	let sheetNuevaCancha = $state(false);
@@ -49,6 +57,10 @@
 		const unsubC = suscribirCanchas(s, (val) => {
 			canchas = val;
 		});
+		const unsubUsos = suscribirUsosDeCanchas((u) => {
+			canchasEnUso = u.canchaIds;
+			sedesEnUso = u.sedeIds;
+		});
 
 		(async () => {
 			try {
@@ -67,6 +79,7 @@
 		return () => {
 			cancelado = true;
 			unsubC();
+			unsubUsos();
 		};
 	});
 
@@ -84,6 +97,12 @@
 
 	async function handleEliminarSede() {
 		if (!sede) return;
+		if (sedeEnUso) {
+			alert(
+				'No se puede eliminar: la sede está siendo usada por algún torneo. Quitala primero de los torneos que usan sus canchas.'
+			);
+			return;
+		}
 		const ok = confirm(
 			`¿Eliminar la sede "${sede.nombre}"? Se borran también todas sus canchas.`
 		);
@@ -105,6 +124,12 @@
 
 	async function handleEliminarCancha() {
 		if (!editandoCanchaId || !canchaEditando) return;
+		if (canchaEnUso(editandoCanchaId)) {
+			alert(
+				'No se puede eliminar: la cancha está siendo usada por algún torneo. Quitala primero de los torneos.'
+			);
+			return;
+		}
 		const ok = confirm(`¿Eliminar la cancha "${canchaEditando.nombre}"?`);
 		if (!ok) return;
 		await eliminarCancha(sid, editandoCanchaId);
@@ -113,7 +138,8 @@
 
 	const initialNuevaCancha: CanchaInput = { nombre: '' };
 
-	const onTestCancha = AMBIENTE !== 'prod' ? generarCanchaInput : undefined;
+	const onTestCancha =
+		AMBIENTE !== 'prod' ? () => generarCanchaInput(canchas) : undefined;
 </script>
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
@@ -143,28 +169,33 @@
 				{ prefijo: 'Sede', label: sede.nombre },
 				...(sede.direccion ? [{ prefijo: 'Dirección', label: sede.direccion }] : [])
 			]}
-		/>
-
-		<section class="mb-6 flex items-center justify-end gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-			<button
-				type="button"
-				onclick={() => (sheetEditarSede = true)}
-				title="Editar sede"
-				aria-label="Editar sede"
-				class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-			>
-				<i class="bi bi-pencil"></i>
-			</button>
-			<button
-				type="button"
-				onclick={handleEliminarSede}
-				title="Eliminar sede"
-				aria-label="Eliminar sede"
-				class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-gray-400 dark:hover:bg-red-900/40 dark:hover:text-red-400"
-			>
-				<i class="bi bi-trash"></i>
-			</button>
-		</section>
+		>
+			{#snippet footer()}
+				<div class="flex items-center justify-end gap-1">
+					<button
+						type="button"
+						onclick={() => (sheetEditarSede = true)}
+						title="Editar sede"
+						aria-label="Editar sede"
+						class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+					>
+						<i class="bi bi-pencil"></i>
+					</button>
+					<button
+						type="button"
+						onclick={handleEliminarSede}
+						disabled={sedeEnUso}
+						title={sedeEnUso
+							? 'No se puede eliminar — la sede está usada por algún torneo'
+							: 'Eliminar sede'}
+						aria-label="Eliminar sede"
+						class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:text-gray-400 dark:hover:bg-red-900/40 dark:hover:text-red-400 dark:disabled:hover:text-gray-400"
+					>
+						<i class="bi bi-trash"></i>
+					</button>
+				</div>
+			{/snippet}
+		</BreadcrumbCard>
 
 		<header class="mb-4 flex items-center justify-between">
 			<h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">Canchas</h1>
@@ -194,6 +225,7 @@
 			</p>
 			<ul class="space-y-1.5">
 				{#each canchas as c (c.id)}
+					{@const enUso = canchaEnUso(c.id)}
 					<li>
 						<button
 							type="button"
@@ -211,6 +243,15 @@
 									{c.nombre}
 								</p>
 							</div>
+							{#if enUso}
+								<span
+									class="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+									title="Usada por algún torneo"
+								>
+									<i class="bi bi-link-45deg text-[10px]"></i>
+									En uso
+								</span>
+							{/if}
 							<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>
 						</button>
 					</li>
@@ -247,13 +288,20 @@
 	title="Editar cancha"
 >
 	{#if canchaEditando}
+		{@const enUso = canchaEnUso(canchaEditando.id)}
+		{#if enUso}
+			<div class="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+				<i class="bi bi-info-circle mr-1"></i>
+				Esta cancha está siendo usada por algún torneo. Para eliminarla, quitala primero de los torneos.
+			</div>
+		{/if}
 		{#key editandoCanchaId}
 			<CanchaForm
 				initial={{ nombre: canchaEditando.nombre }}
 				submitLabel="Guardar"
 				onSubmit={handleActualizarCancha}
 				onCancel={() => (editandoCanchaId = null)}
-				onEliminar={handleEliminarCancha}
+				onEliminar={enUso ? undefined : handleEliminarCancha}
 			/>
 		{/key}
 	{/if}

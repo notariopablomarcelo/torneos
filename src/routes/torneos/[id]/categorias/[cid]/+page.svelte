@@ -324,7 +324,7 @@
 						<i class="bi bi-trophy text-xl"></i>
 					</span>
 					<div class="min-w-0 flex-1">
-						<p class="text-base font-semibold text-gray-900 dark:text-gray-100">Cuadro Final</p>
+						<p class="text-base font-semibold text-gray-900 dark:text-gray-100">Fase Eliminatoria</p>
 						<p class="text-xs text-gray-500 dark:text-gray-400">{subBracket}</p>
 					</div>
 					<i class="bi bi-chevron-right shrink-0 text-base text-gray-300 dark:text-gray-600"></i>

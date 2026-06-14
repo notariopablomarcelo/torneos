@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import BreadcrumbCard from '$lib/components/BreadcrumbCard.svelte';
-	import CategoriaForm from '$lib/components/CategoriaForm.svelte';
+	import CategoriaWizard from '$lib/components/CategoriaWizard.svelte';
 	import { suscribirTorneo } from '$lib/services/torneos';
 	import { crearCategoria } from '$lib/services/categorias';
 	import { AMBIENTE } from '$lib/firebase';
@@ -24,13 +24,6 @@
 		});
 		return () => unsubT();
 	});
-
-	const initial: CategoriaInput = {
-		nivel: '4ta',
-		genero: 'Caballeros',
-		cupos: null,
-		cantidadJugadores: 2
-	};
 
 	const onTest = AMBIENTE !== 'prod' ? generarCategoriaInput : undefined;
 
@@ -69,13 +62,7 @@
 		</header>
 
 		<section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
-			<CategoriaForm
-				{initial}
-				submitLabel="Crear"
-				onSubmit={handleCrear}
-				onCancel={handleCancel}
-				{onTest}
-			/>
+			<CategoriaWizard onSubmit={handleCrear} onCancel={handleCancel} {onTest} />
 		</section>
 	{/if}
 </div>
